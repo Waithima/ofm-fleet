@@ -45,6 +45,9 @@
           <!-- Added proper spacing here -->
           <button type="submit" class="btn btn-danger" style="width: 100%; margin-top: 8px;">Submit Issue</button>
         </form>
+        <div class="alert mt-4" style="background: #dcfce7; color: #166534; padding: 12px; border-radius: 8px; font-size: 13px;">
+          <i class="fa-brands fa-whatsapp"></i> <strong>Tip:</strong> If you are reporting physical damage or a hardware failure, please click the green WhatsApp button in the bottom right corner to send us a photo of the issue.
+        </div>
 
       {% elif l.status == 'PENDING' %}
         <div class="alert alert-error" style="background: #fef3c7; color: #92400e; margin: 0;">
@@ -101,3 +104,4 @@ async function reportIssue(e, unitId, clientId) {
 }
 </script>
 {% endblock %}
+
