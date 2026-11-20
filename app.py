@@ -194,6 +194,29 @@ def api_client_issue():
     execute("UPDATE units SET status='ISSUE_REPORTED' WHERE id=?", (data["unitId"],))
     return jsonify({"ok": True}), 201
 
+@app.route("/api/telemetry/heartbeat", methods=["POST"])
+def api_telemetry_heartbeat():
+    data = request.get_json(silent=True) or {}
+    serial = data.get("serial")
+    if not serial:
+        return jsonify({"ok": False, "error": "Missing serial"}), 400
+
+    unit = row("SELECT * FROM units WHERE serial=?", (serial,))
+    if not unit:
+        return jsonify({"ok": False, "error": f"Unknown unit serial: {serial}"}), 404
+
+    online = 1 if data.get("online") else 0
+    camera_ok = 1 if data.get("cameraOk") else 0
+    os_info = data.get("osInfo") or ""
+    error_log = data.get("errorLog")
+
+    execute(
+        "INSERT INTO telemetry (unit_id, online, os_info, camera_ok, error_log) VALUES (?, ?, ?, ?, ?)",
+        (unit["id"], online, os_info, camera_ok, error_log),
+    )
+    execute("UPDATE units SET last_seen_at=CURRENT_TIMESTAMP WHERE id=?", (unit["id"],))
+    return jsonify({"ok": True}), 200
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST" and check_password_hash(ADMIN_HASH, request.form.get("password")):
@@ -247,12 +270,16 @@ def admin_live():
     """)
     now = datetime.utcnow()
     for u in units:
-        if u["received_at"]:
+        ts = u.get("received_at")
+        if ts:
             try:
-                age = (now - datetime.fromisoformat(u["received_at"])).total_seconds()
+                dt = ts if isinstance(ts, datetime) else datetime.fromisoformat(str(ts))
+                age = (now - dt).total_seconds()
                 u["live"], u["age_seconds"] = age < 180, int(age)
-            except: u["live"] = False
-        else: u["live"] = False
+            except Exception:
+                u["live"] = False
+        else:
+            u["live"] = False
     return render_template("admin_live.html", units=units, active="admin")
 
 @app.route("/admin/requests")
