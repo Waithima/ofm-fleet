@@ -9,13 +9,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}"><meta name="theme-color" content="#c5247f"></head>
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <meta name="theme-color" content="#c5247f">
+</head>
 <body style="display: flex; flex-direction: column; min-height: 100vh;">
   <nav class="nav">
     <div class="nav-left">
       <a href="/admin" class="admin-link" title="Admin Dashboard"><i class="fa-solid fa-lock"></i> Admin</a>
       <span class="divider">|</span>
-      <a class="brand" href="/"><img src="https://raw.githubusercontent.com/rwb27/openflexure_microscope/master/logo.svg" alt="OFM Logo" style="height: 28px; margin-right: 8px; filter: brightness(0) saturate(100%) invert(24%) sepia(85%) saturate(2559%) hue-rotate(307deg) brightness(91%) contrast(93%);"> OpenFlexure Fleet</a>
+      <a class="brand" href="/" style="text-decoration: none;">OpenFlexure Fleet</a>
     </div>
     <div class="nav-right">
       <a href="/" class="{{ 'active' if active == 'portal' }}">Catalog</a>
@@ -24,7 +26,6 @@
       {% endif %}
     </div>
   </nav>
-  
   <main class="container fade-in" style="flex: 1;">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -36,9 +37,8 @@
     {% block content %}{% endblock %}
   </main>
 
-  <!-- FOOTER -->
   <footer style="background: var(--white); border-top: 1px solid var(--gray-200); padding: 40px 24px; margin-top: 60px;">
-    <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;">
+    <div style="max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 32px;">
       <div>
         <h3 style="font-family: var(--font-head); color: var(--pink); margin-bottom: 12px;">OFM Fleet</h3>
         <p class="small muted">High-resolution, automated, and open-source hardware delivered directly to your lab.</p>
@@ -64,15 +64,13 @@
     </div>
   </footer>
 
-  <!-- WHATSAPP BUTTON -->
   <a href="https://wa.me/254112262056" target="_blank" style="position: fixed; bottom: 30px; right: 30px; background: #25D366; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; text-decoration: none;">
     <i class="fa-brands fa-whatsapp"></i>
   </a>
-<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register("/static/sw.js"); }</script></body>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register("/static/sw.js");
+    }
+  </script>
+</body>
 </html>
-
-
-
-
-
-
