@@ -265,21 +265,30 @@ def api_update_status(unit_id):
 def admin_live():
     units = rows("""
         SELECT u.id, u.serial, u.model, u.status, t.online, t.camera_ok, t.received_at
-        FROM units u LEFT JOIN telemetry t ON t.id = (SELECT id FROM telemetry WHERE unit_id = u.id ORDER BY received_at DESC LIMIT 1)
+        FROM units u
+        LEFT JOIN telemetry t ON t.id = (
+            SELECT id FROM telemetry
+            WHERE unit_id = u.id
+            ORDER BY received_at DESC, id DESC
+            LIMIT 1
+        )
         ORDER BY u.serial
     """)
     now = datetime.utcnow()
     for u in units:
         ts = u.get("received_at")
+        u["live"] = False
+        u["age_seconds"] = None
         if ts:
             try:
                 dt = ts if isinstance(ts, datetime) else datetime.fromisoformat(str(ts))
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone().replace(tzinfo=None)
                 age = (now - dt).total_seconds()
-                u["live"], u["age_seconds"] = age < 180, int(age)
+                u["age_seconds"] = max(0, int(age))
+                u["live"] = age < 180
             except Exception:
                 u["live"] = False
-        else:
-            u["live"] = False
     return render_template("admin_live.html", units=units, active="admin")
 
 @app.route("/admin/requests")
@@ -363,3 +372,4 @@ if DB_URL:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
