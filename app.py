@@ -13,7 +13,6 @@ DB_URL = os.environ.get("DATABASE_URL", "")
 
 app = Flask(__name__)
 app.secret_key = "ofm-super-secret-key-change-in-production"
-
 resend.api_key = os.environ.get("RESEND_API_KEY", "")
 
 login_manager = LoginManager()
@@ -83,21 +82,14 @@ def parse_config(u):
     return u
 
 def send_email(to_email, subject, body):
-    if not to_email:
-        return False
+    if not to_email: return False
     try:
-        resend.Emails.send({
-            "from": "onboarding@resend.dev",
-            "to": [to_email],
-            "subject": subject,
-            "text": body,
-        })
-        print(f"📧 Real email sent to {to_email} via Resend")
+        resend.Emails.send({"from": "onboarding@resend.dev", "to": [to_email], "subject": subject, "text": body})
+        print(f"📧 Email sent to {to_email}")
         return True
     except Exception as e:
-        print(f"❌ Failed to send email: {e}")
+        print(f"❌ Failed to send: {e}")
         return False
-
 
 def run_daily_checks():
     today = datetime.utcnow().date().isoformat()
@@ -121,11 +113,7 @@ def run_daily_checks():
 def index():
     run_daily_checks()
     units = [parse_config(u) for u in rows("SELECT * FROM units ORDER BY serial")]
-    active_leases = rows("""
-        SELECT unit_id, end_date FROM leases 
-        WHERE status IN ('ACTIVE', 'PENDING') 
-        AND id IN (SELECT MAX(id) FROM leases WHERE status IN ('ACTIVE', 'PENDING') GROUP BY unit_id)
-    """)
+    active_leases = rows("SELECT unit_id, end_date FROM leases WHERE status IN ('ACTIVE', 'PENDING') AND id IN (SELECT MAX(id) FROM leases WHERE status IN ('ACTIVE', 'PENDING') GROUP BY unit_id)")
     lease_map = {l['unit_id']: l['end_date'][:10] for l in active_leases}
     for u in units: u['booked_until'] = lease_map.get(u['id'])
     return render_template("index.html", units=units)
@@ -133,8 +121,7 @@ def index():
 @app.route("/lease/<int:unit_id>", methods=["GET", "POST"])
 def lease_request(unit_id):
     unit = row("SELECT * FROM units WHERE id=?", (unit_id,))
-    if not unit or unit['status'] in ('MAINTENANCE', 'DECOMMISSIONED'):
-        return "Unit is currently unavailable for leasing.", 404
+    if not unit or unit['status'] in ('MAINTENANCE', 'DECOMMISSIONED'): return "Unit unavailable", 404
     if request.method == "POST":
         name, email, phone = request.form.get("name"), request.form.get("email"), request.form.get("phone")
         county, institution = request.form.get("county"), request.form.get("institution")
@@ -143,23 +130,19 @@ def lease_request(unit_id):
         client = row("SELECT * FROM clients WHERE email=?", (email,))
         if not client:
             token = str(uuid.uuid4())
-            client_id = execute("INSERT INTO clients (name, email, phone, county, institution, access_token) VALUES (?,?,?,?,?,?)",
-                                (name, email, phone, county, institution, token))
+            client_id = execute("INSERT INTO clients (name, email, phone, county, institution, access_token) VALUES (?,?,?,?,?,?)", (name, email, phone, county, institution, token))
             client = row("SELECT * FROM clients WHERE id=?", (client_id,))
         else:
-            execute("UPDATE clients SET name=?, phone=?, county=?, institution=? WHERE id=?", 
-                    (name, phone, county, institution, client['id']))
+            execute("UPDATE clients SET name=?, phone=?, county=?, institution=? WHERE id=?", (name, phone, county, institution, client['id']))
         
         existing_lease = row("SELECT * FROM leases WHERE unit_id=? AND client_id=? AND status IN ('PENDING', 'ACTIVE')", (unit_id, client['id']))
         if existing_lease:
             execute("UPDATE leases SET start_date=?, end_date=? WHERE id=?", (start_date, end_date, existing_lease['id']))
         else:
-            execute("INSERT INTO leases (unit_id, client_id, status, start_date, end_date) VALUES (?, ?, 'PENDING', ?, ?)",
-                    (unit_id, client['id'], start_date, end_date))
+            execute("INSERT INTO leases (unit_id, client_id, status, start_date, end_date) VALUES (?, ?, 'PENDING', ?, ?)", (unit_id, client['id'], start_date, end_date))
             execute("UPDATE units SET status='RESERVED' WHERE id=?", (unit_id,))
             magic_link = f"https://ofm-fleet.onrender.com/my-portal/{client['access_token']}"
-            body = f"Hello {name},\n\nYour request for {unit['serial']} is pending approval.\n\nPortal: {magic_link}"
-            send_email(email, "OFM Lease Request", body)
+            send_email(email, "OFM Lease Request", f"Hello {name},\n\nYour request for {unit['serial']} is pending approval.\n\nPortal: {magic_link}")
         
         magic_link = f"https://ofm-fleet.onrender.com/my-portal/{client['access_token']}"
         return render_template("lease_success.html", magic_link=magic_link, email=email)
@@ -170,12 +153,7 @@ def client_portal(token):
     run_daily_checks()
     client = row("SELECT * FROM clients WHERE access_token=?", (token,))
     if not client: return "Invalid link.", 404
-    leases = rows("""
-        SELECT l.*, u.serial, u.model, u.image_url, u.status AS unit_status
-        FROM leases l JOIN units u ON u.id = l.unit_id
-        WHERE l.client_id = ? AND l.id IN (SELECT MAX(id) FROM leases WHERE client_id = ? GROUP BY unit_id)
-        ORDER BY l.id DESC
-    """, (client["id"], client["id"]))
+    leases = rows("SELECT l.*, u.serial, u.model, u.image_url, u.status AS unit_status FROM leases l JOIN units u ON u.id = l.unit_id WHERE l.client_id = ? AND l.id IN (SELECT MAX(id) FROM leases WHERE client_id = ? GROUP BY unit_id) ORDER BY l.id DESC", (client["id"], client["id"]))
     today = datetime.utcnow().date()
     for l in leases:
         end_date = datetime.strptime(l['end_date'], "%Y-%m-%d").date()
@@ -190,8 +168,7 @@ def api_renew_lease(lease_id):
 @app.route("/api/client/issues", methods=["POST"])
 def api_client_issue():
     data = request.get_json()
-    execute("INSERT INTO issues (unit_id, client_id, category, severity, description, photo_urls) VALUES (?,?,?,?,?,?)",
-            (data["unitId"], data["clientId"], data["category"], data["severity"], data["description"], "[]"))
+    execute("INSERT INTO issues (unit_id, client_id, category, severity, description, photo_urls) VALUES (?,?,?,?,?,?)", (data["unitId"], data["clientId"], data["category"], data["severity"], data["description"], "[]"))
     execute("UPDATE units SET status='ISSUE_REPORTED' WHERE id=?", (data["unitId"],))
     return jsonify({"ok": True}), 201
 
@@ -212,25 +189,13 @@ def admin_logout():
 @login_required
 def admin():
     run_daily_checks()
-    units = rows("""
-        SELECT u.*, c.name AS client_name, l.end_date
-        FROM units u
-        LEFT JOIN leases l ON l.id = (SELECT id FROM leases WHERE unit_id = u.id AND status IN ('ACTIVE', 'PENDING') ORDER BY id DESC LIMIT 1)
-        LEFT JOIN clients c ON c.id = l.client_id
-        ORDER BY u.serial
-    """)
+    units = rows("SELECT u.*, c.name AS client_name, l.end_date FROM units u LEFT JOIN leases l ON l.id = (SELECT id FROM leases WHERE unit_id = u.id AND status IN ('ACTIVE', 'PENDING') ORDER BY id DESC LIMIT 1) LEFT JOIN clients c ON c.id = l.client_id ORDER BY u.serial")
     units = [parse_config(u) for u in units]
-    all_leases = rows("""
-        SELECT l.*, c.name AS client_name, c.email, c.phone, c.county, c.institution, u.serial, u.model
-        FROM leases l JOIN clients c ON c.id = l.client_id JOIN units u ON u.id = l.unit_id
-        ORDER BY l.created_at DESC
-    """)
+    all_leases = rows("SELECT l.*, c.name AS client_name, c.email, c.phone, c.county, c.institution, u.serial, u.model FROM leases l JOIN clients c ON c.id = l.client_id JOIN units u ON u.id = l.unit_id ORDER BY l.created_at DESC")
     issues = rows("SELECT * FROM issues")
     total = len(units) or 1
     leased = sum(1 for u in units if u["status"] in ("LEASED", "ISSUE_REPORTED", "RESERVED"))
-    return render_template("admin.html", units=units, leases=all_leases, stats=dict(
-        utilization=round(leased / total * 100, 1), open_issues=sum(1 for i in issues if i["status"] == "OPEN"), fleet=len(units)
-    ), active="admin")
+    return render_template("admin.html", units=units, leases=all_leases, stats=dict(utilization=round(leased / total * 100, 1), open_issues=sum(1 for i in issues if i["status"] == "OPEN"), fleet=len(units)), active="admin")
 
 @app.route("/api/admin/units/<int:unit_id>/status", methods=["POST"])
 @login_required
@@ -241,11 +206,7 @@ def api_update_status(unit_id):
 @app.route("/admin/live")
 @login_required
 def admin_live():
-    units = rows("""
-        SELECT u.id, u.serial, u.model, u.status, t.online, t.camera_ok, t.received_at
-        FROM units u LEFT JOIN telemetry t ON t.id = (SELECT id FROM telemetry WHERE unit_id = u.id ORDER BY received_at DESC LIMIT 1)
-        ORDER BY u.serial
-    """)
+    units = rows("SELECT u.id, u.serial, u.model, u.status, t.online, t.camera_ok, t.received_at FROM units u LEFT JOIN telemetry t ON t.id = (SELECT id FROM telemetry WHERE unit_id = u.id ORDER BY received_at DESC LIMIT 1) ORDER BY u.serial")
     now = datetime.utcnow()
     for u in units:
         if u["received_at"]:
@@ -285,25 +246,57 @@ def api_disapprove_lease(lease_id):
     send_email(client["email"], "Lease Request Update", f"Hello {client['name']},\n\nUnfortunately, your lease request for {unit['serial']} was not approved.")
     return jsonify({"ok": True})
 
+# --- NEW: RESOLVE ISSUES ROUTE ---
+@app.route("/api/admin/issues/<int:issue_id>/resolve", methods=["POST"])
+@login_required
+def api_resolve_issue(issue_id):
+    data = request.get_json()
+    issue = row("SELECT i.*, c.name AS client_name, c.email, u.serial FROM issues i JOIN clients c ON c.id = i.client_id JOIN units u ON u.id = i.unit_id WHERE i.id = ?", (issue_id,))
+    
+    action = data.get("action")
+    message = data.get("message", "")
+    
+    if action == "email":
+        body = f"Hello {issue['client_name']},\n\nRegarding your issue with {issue['serial']}:\n\n{message}\n\nThank you,\nOFM Support"
+        send_email(issue['email'], f"Update on your {issue['serial']} Issue", body)
+        execute("UPDATE issues SET status='RESOLVED', resolution=? WHERE id=?", (f"Emailed: {message}", issue_id))
+        execute("UPDATE units SET status='READY' WHERE id=?", (issue['unit_id'],))
+        
+    elif action == "dropoff":
+        body = f"Hello {issue['client_name']},\n\nPlease bring your microscope ({issue['serial']}) to our office at Meru University for repair.\n\nMessage from Admin:\n{message}\n\nThank you."
+        send_email(issue['email'], "Please bring microscope to office", body)
+        execute("UPDATE issues SET status='IN_REPAIR', resolution=? WHERE id=?", (f"Bring to office: {message}", issue_id))
+        
+    elif action == "visit":
+        date = data.get("date")
+        body = f"Hello {issue['client_name']},\n\nWe will visit your institution on {date} to repair your microscope ({issue['serial']}).\n\nMessage from Admin:\n{message}\n\nThank you."
+        send_email(issue['email'], "Technician Visit Scheduled", body)
+        execute("UPDATE issues SET status='IN_REPAIR', resolution=? WHERE id=?", (f"Visit on {date}: {message}", issue_id))
+        
+    return jsonify({"ok": True})
+
+# --- FIXED CSV EXPORT ---
 @app.route("/admin/export-csv")
 @login_required
 def export_csv():
     leases = rows("SELECT l.id, u.serial, u.model, c.name, c.email, c.phone, c.county, c.institution, l.start_date, l.end_date, l.status, l.created_at FROM leases l JOIN clients c ON c.id = l.client_id JOIN units u ON u.id = l.unit_id ORDER BY l.created_at DESC")
     def generate():
         data = io.StringIO()
-        writer = csv.writer(data)
-        writer.writerow(["ID", "Serial", "Model", "Name", "Email", "Phone", "County", "Institution", "Start", "End", "Status", "Date Requested"])
-        for l in leases: writer.writerow([l['id'], l['serial'], l['model'], l['name'], l['email'], l['phone'], l['county'], l['institution'], l['start_date'], l['end_date'], l['status'], l['created_at']])
+        writer = csv.writer(data, delimiter='\t')
+        writer.writerow(["Lease ID", "Microscope Serial", "Microscope Model", "Client Name", "Email Address", "Phone Number", "County (Delivery)", "Institution (Delivery)", "Start Date", "End Date", "Current Status", "Date Requested"])
+        for l in leases:
+            # Adding a space forces Excel to treat the phone as text (preventing 1.12E+08)
+            phone = f" {l['phone']}" if l['phone'] else ""
+            writer.writerow([l['id'], l['serial'], l['model'], l['name'], l['email'], phone, l['county'], l['institution'], l['start_date'], l['end_date'], l['status'], l['created_at']])
         yield data.getvalue()
-    return Response(generate(), mimetype='text/csv', headers={"Content-Disposition": "attachment;filename=ofm_leases.csv"})
+    return Response(generate(), mimetype='application/vnd.ms-excel', headers={"Content-Disposition": "attachment;filename=ofm_leases.xls"})
 
 @app.route("/api/admin/units", methods=["POST"])
 @login_required
 def api_add_unit():
     data = request.get_json()
     try:
-        execute("INSERT INTO units (serial, model, configuration, status, image_url) VALUES (?, ?, ?, 'READY', ?)",
-                (data["serial"], data["model"], json.dumps({}), data.get("image_url", "")))
+        execute("INSERT INTO units (serial, model, configuration, status, image_url) VALUES (?, ?, ?, 'READY', ?)", (data["serial"], data["model"], json.dumps({}), data.get("image_url", "")))
         return jsonify({"ok": True}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
