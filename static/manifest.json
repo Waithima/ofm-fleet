@@ -7,7 +7,7 @@
   "theme_color": "#c5247f",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/rwb27/openflexure_microscope/master/logo.svg",
+      "src": "https://raw.githubusercontent.com/openflexure/openflexure-microscope/master/docs/logo.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
