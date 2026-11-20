@@ -1,0 +1,16 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h1>Available microscopes</h1>
+<div class="grid-3">
+  {% for u in units %}
+  <div class="card">
+    <div class="row-between">
+      <span class="mono">{{ u.serial }}</span>
+      <span class="badge badge-{{ u.status|lower|replace('_','-') }}">{{ u.status|replace('_',' ') }}</span>
+    </div>
+    <div class="strong">{{ u.model }}</div>
+    <pre class="config">{{ u.configuration | tojson(indent=2) }}</pre>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

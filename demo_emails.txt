@@ -1,0 +1,29 @@
+--- TO: jeffwaithima400@gmail.com ---
+SUBJECT: Your OFM Lease Request
+
+Hello Geofrey Wathima,
+
+Your request for OFM-0015 (OFM-Fluorescence-v7) has been received.
+
+Click here to access your private portal:
+http://localhost:5000/my-portal/c3fdf6ce-8d53-4a7c-a5e4-9d06304d0731
+
+Thank you!
+
+--- TO: jeffwaithima400@gmail.com ---
+SUBJECT: Lease Approved!
+
+Good news! Your lease for OFM-0015 has been approved. You can now access the portal and report any issues.
+
+--- TO: joy@gmail.com ---
+SUBJECT: Your OFM Lease Request
+
+Hello joy,
+
+Your request for OFM-0016 (OFM-Brightfield-v7) has been received.
+
+Click here to access your private portal:
+http://localhost:5000/my-portal/605454ad-1bf5-433d-aa6c-427d100bccf3
+
+Thank you!
+

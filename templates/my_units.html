@@ -1,0 +1,21 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h1>My leased units</h1>
+<p class="muted">Signed in as {{ customer.name }} (demo).</p>
+<div class="stack">
+  {% for l in leases %}
+  <div class="card row-between">
+    <div>
+      <div class="mono">{{ l.serial }} &mdash; {{ l.model }}</div>
+      <div class="small muted">Delivered {{ l.delivered_at[:10] if l.delivered_at else '--' }}</div>
+    </div>
+    <div class="flex">
+      <span class="badge badge-{{ l.unit_status|lower|replace('_','-') }}">{{ l.unit_status|replace('_',' ') }}</span>
+      <a href="/portal/my-units/{{ l.unit_id }}" class="btn btn-primary">Report issue</a>
+    </div>
+  </div>
+  {% else %}
+  <p class="muted">No active leases.</p>
+  {% endfor %}
+</div>
+{% endblock %}

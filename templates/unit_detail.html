@@ -1,0 +1,67 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="grid-3-1">
+  <div class="stack">
+    <div class="card row-between">
+      <div>
+        <h1 class="mono">{{ unit.serial }}</h1>
+        <div class="muted">{{ unit.model }}</div>
+      </div>
+      <span class="badge badge-{{ unit.status|lower|replace('_','-') }}">{{ unit.status|replace('_',' ') }}</span>
+    </div>
+
+    <div class="card">
+      <h2>Report a malfunction</h2>
+      <form id="issue-form" data-unit-id="{{ unit.id }}" data-customer-id="{{ lease.customer_id }}">
+        <label class="label">Category
+          <select class="input" name="category" id="category">
+            <option value="stage">Stage / Actuator movement</option>
+            <option value="focus">Focus / Optics</option>
+            <option value="illumination">Illumination</option>
+            <option value="pi_camera">Raspberry Pi / Camera / Power</option>
+            <option value="physical">Physical damage</option>
+          </select>
+        </label>
+        <label class="label">Severity
+          <select class="input" name="severity">
+            <option>LOW</option><option selected>MEDIUM</option>
+            <option>HIGH</option><option>CRITICAL</option>
+          </select>
+        </label>
+        <div class="self-check" id="self-check"></div>
+        <label class="label">Describe the symptom
+          <textarea class="input" name="description" rows="4" required></textarea>
+        </label>
+        <button class="btn btn-primary" type="submit">Submit report</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Issue history</h2>
+      {% for i in issues %}
+      <div class="issue-row">
+        <div class="row-between">
+          <strong>{{ i.category }}</strong>
+          <span>
+            <span class="badge badge-{{ i.severity|lower }}">{{ i.severity }}</span>
+            <span class="badge badge-{{ i.status|lower|replace('_','-') }}">{{ i.status }}</span>
+          </span>
+        </div>
+        <div>{{ i.description }}</div>
+      </div>
+      {% else %}
+      <p class="muted">No issues reported yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <aside class="card">
+    <h3>Lease</h3>
+    <p class="muted">{{ lease.customer_name }}</p>
+    <p class="small">Delivered: {{ lease.delivered_at[:10] if lease.delivered_at else '--' }}</p>
+    <p class="small">Deposit: ${{ "%.2f"|format(lease.deposit_cents / 100) }}</p>
+    <p class="small">Daily: ${{ "%.2f"|format(lease.daily_cents / 100) }}</p>
+  </aside>
+</div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

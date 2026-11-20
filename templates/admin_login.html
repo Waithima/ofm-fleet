@@ -1,0 +1,18 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="login-wrapper">
+  <div class="card login-card fade-in">
+    <div class="text-center mb-4">
+      <i class="fa-solid fa-shield-halved text-pink" style="font-size: 3rem; margin-bottom: 16px;"></i>
+      <h1>Admin Access</h1>
+      <p class="muted">Enter your master password to continue.</p>
+    </div>
+    <form method="POST">
+      <label class="label">Password
+        <input type="password" name="password" class="input" required autofocus>
+      </label>
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Unlock Dashboard</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

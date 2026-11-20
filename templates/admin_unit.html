@@ -1,0 +1,47 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="card row-between">
+  <div>
+    <h1 class="mono">{{ unit.serial }}</h1>
+    <div class="muted">{{ unit.model }}</div>
+  </div>
+  <span class="badge badge-{{ unit.status|lower|replace('_','-') }}">{{ unit.status|replace('_',' ') }}</span>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>Lease history</h3>
+    {% for l in leases %}
+    <div class="row"><b>{{ l.customer_name }}</b> &middot; {{ l.status }} &middot; delivered {{ l.delivered_at[:10] if l.delivered_at else '--' }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h3>Issues</h3>
+    {% for i in issues %}
+    <div class="row">
+      <span class="badge badge-{{ i.severity|lower }}">{{ i.severity }}</span>
+      <b>{{ i.category }}</b> &mdash; {{ i.description }}
+    </div>
+    {% else %}
+    <p class="muted">No issues.</p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h3>Event log</h3>
+    {% for h in history %}
+    <div class="row"><span class="small muted">{{ h.at }}</span> &middot; <b>{{ h.event }}</b> &mdash; {{ h.detail }}</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h3>Recent telemetry</h3>
+    {% for t in telemetry %}
+    <div class="row"><span class="small muted">{{ t.received_at }}</span> &middot; online={{ t.online }} camera={{ t.camera_ok }}</div>
+    {% else %}
+    <p class="muted">No telemetry received.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

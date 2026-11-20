@@ -1,0 +1,56 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="row-between">
+  <h1>Issue &amp; maintenance queue</h1>
+  <form method="get">
+    <select class="input" name="status" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      {% for s in ['OPEN','ASSIGNED','IN_REPAIR','RESOLVED','CLOSED'] %}
+      <option value="{{ s }}" {{ 'selected' if status == s }}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="stack">
+  {% for i in issues %}
+  <div class="card">
+    <div class="row-between">
+      <div>
+        <div class="mono">{{ i.serial }} &middot; {{ i.model }}</div>
+        <div class="small muted">{{ i.customer_name }}</div>
+        <p>{{ i.description }}</p>
+        <div class="small muted">Category: {{ i.category }} &middot; Reported {{ i.created_at }}</div>
+      </div>
+      <div class="stack-right">
+        <div>
+          <span class="badge badge-{{ i.severity|lower }}">{{ i.severity }}</span>
+          <span class="badge badge-{{ i.status|lower|replace('_','-') }}">{{ i.status }}</span>
+        </div>
+        <div class="flex">
+          <button class="btn btn-ghost" onclick="updateIssue({{ i.id }}, {status:'IN_REPAIR'})">Start repair</button>
+          <button class="btn btn-primary" onclick="resolveIssue({{ i.id }})">Resolve</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="muted">Nothing here.</p>
+  {% endfor %}
+</div>
+
+<script>
+async function updateIssue(id, patch) {
+  await fetch('/api/issues/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(patch)
+  });
+  location.reload();
+}
+function resolveIssue(id) {
+  const r = prompt('Resolution notes:');
+  if (r) updateIssue(id, {status: 'RESOLVED', resolution: r});
+}
+</script>
+{% endblock %}

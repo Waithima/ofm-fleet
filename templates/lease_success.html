@@ -1,0 +1,12 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="login-wrapper">
+  <div class="card login-card fade-in text-center">
+    <i class="fa-solid fa-envelope-circle-check" style="font-size: 48px; color: #10b981; margin-bottom: 16px;"></i>
+    <h1>Request Submitted!</h1>
+    <p class="muted mb-4">We have sent a verification email to <strong>{{ email }}</strong>.</p>
+    <p class="small muted">Please check your inbox (and spam folder) to access your private portal.</p>
+    <a href="/" class="btn btn-primary mt-4" style="width: 100%; justify-content: center;">Return to Catalog</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="row-between mb-4">
+  <h1>Pending Lease Requests</h1>
+  <a href="/admin" class="btn btn-ghost">Back to Fleet</a>
+</div>
+
+<div class="stack">
+  {% for l in leases %}
+  <div class="card">
+    <div class="row-between">
+      <div>
+        <h3 class="mb-2">{{ l.client_name }} wants <span class="mono">{{ l.serial }}</span></h3>
+        <p class="small muted mb-2">Email: {{ l.email }} | Phone: {{ l.phone }}</p>
+        <p class="small muted mb-2">County: {{ l.county }} | Institution: {{ l.institution }}</p>
+        <p class="small">Requested Dates: {{ l.start_date[:10] }} to {{ l.end_date[:10] }}</p>
+      </div>
+      <div class="flex" style="flex-direction: column; gap: 8px;">
+        <button class="btn btn-primary" onclick="approveLease({{ l.id }})">Approve & Dispatch</button>
+        <button class="btn btn-danger" onclick="disapproveLease({{ l.id }})">Disapprove</button>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="muted">No pending requests.</p>
+  {% endfor %}
+</div>
+
+<script>
+async function approveLease(id) {
+  if (!confirm('Approve this lease? The microscope will be marked as LEASED.')) return;
+  const res = await fetch(`/api/admin/requests/${id}/approve`, { method: 'POST' });
+  if (res.ok) location.reload();
+}
+
+async function disapproveLease(id) {
+  if (!confirm('Disapprove this request? The microscope will go back to READY.')) return;
+  const res = await fetch(`/api/admin/requests/${id}/disapprove`, { method: 'POST' });
+  if (res.ok) location.reload();
+}
+</script>
+{% endblock %}

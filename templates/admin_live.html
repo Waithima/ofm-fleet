@@ -1,0 +1,35 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h1>Live Fleet Monitor</h1>
+<p class="muted">Heartbeat status for all microscopes. Updates on page refresh.</p>
+
+<div class="live-grid">
+  {% for u in units %}
+  <div class="live-card {{ 'live-up' if u.live else 'live-down' }}">
+    <div class="live-header">
+      <span class="mono">{{ u.serial }}</span>
+      <span class="live-dot {{ 'dot-up' if u.live else 'dot-down' }}"></span>
+    </div>
+    <div class="strong">{{ u.model }}</div>
+    <div class="live-row">
+      <span>Status</span>
+      <span>{{ 'ONLINE' if u.live else 'OFFLINE' }}</span>
+    </div>
+    <div class="live-row">
+      <span>Fleet state</span>
+      <span class="badge badge-{{ u.status|lower|replace('_','-') }}">{{ u.status|replace('_',' ') }}</span>
+    </div>
+    <div class="live-row">
+      <span>Camera</span>
+      <span>{{ 'OK' if u.camera_ok else ('Unknown' if u.camera_ok is none else 'FAULT') }}</span>
+    </div>
+    <div class="live-row">
+      <span>Last heartbeat</span>
+      <span>{{ u.age_seconds ~ 's ago' if u.age_seconds is not none else 'never' }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<p class="muted small">Refresh the page to see the latest state. A unit is considered ONLINE if it sent a heartbeat in the last 3 minutes.</p>
+{% endblock %}

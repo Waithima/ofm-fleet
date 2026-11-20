@@ -1,0 +1,28 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="login-wrapper">
+  <div class="card login-card fade-in" style="max-width: 500px;">
+    <h1 class="mb-4">Lease Request</h1>
+    <p class="muted mb-4">Requesting: <strong>{{ unit.serial }} ({{ unit.model }})</strong></p>
+    
+    <form method="POST">
+      <label class="label">Full Name<input type="text" name="name" class="input" required></label>
+      <label class="label">Email Address<input type="email" name="email" class="input" required></label>
+      <label class="label">Phone Number<input type="tel" name="phone" class="input" required></label>
+      
+      <!-- NEW FIELDS -->
+      <div class="grid-2 mb-4">
+        <label class="label">County<input type="text" name="county" class="input" required></label>
+        <label class="label">Institution<input type="text" name="institution" class="input" required></label>
+      </div>
+      
+      <div class="grid-2 mb-4">
+        <label class="label">Start Date<input type="date" name="start_date" class="input" required></label>
+        <label class="label">End Date<input type="date" name="end_date" class="input" required></label>
+      </div>
+      
+      <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Submit Request</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

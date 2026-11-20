@@ -1,0 +1,91 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="row-between mb-4">
+  <div>
+    <h1>Welcome, {{ client.name }}</h1>
+    <p class="muted">Your private lease portal. Bookmark this page!</p>
+  </div>
+  <div class="icon-wrapper"><i class="fa-solid fa-user-shield"></i></div>
+</div>
+
+<div class="grid-2">
+  {% for l in leases %}
+  <div class="card hover-lift">
+    <div class="row-between mb-4">
+      <span class="badge badge-{{ l.status|lower }}">{{ l.status }}</span>
+      <span class="mono">{{ l.serial }}</span>
+    </div>
+    <h3>{{ l.model }}</h3>
+    <p class="small muted mb-4">Lease Period: {{ l.start_date[:10] }} to {{ l.end_date[:10] }}</p>
+    
+    {% if l.status == 'ACTIVE' %}
+      <div class="card p-0" style="background: var(--gray-50); padding: 16px; border: none;">
+        <h4 class="mb-2">Report a Malfunction</h4>
+        <form onsubmit="reportIssue(event, {{ l.unit_id }}, {{ client.id }})">
+          <select id="cat-{{ l.unit_id }}" class="input mb-2">
+            <option value="stage">Stage / Movement</option>
+            <option value="focus">Focus / Optics</option>
+            <option value="camera">Camera / Power</option>
+          </select>
+          <textarea id="desc-{{ l.unit_id }}" class="input mb-2" rows="2" placeholder="Describe the issue..." required></textarea>
+          <button type="submit" class="btn btn-danger btn-sm" style="width: 100%; justify-content: center;">Submit Issue</button>
+        </form>
+      </div>
+      
+      <!-- RENEW BUTTON -->
+      {% if l.show_renew %}
+      <div class="mt-4">
+        <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="renewLease({{ l.id }}, '{{ l.end_date }}')">Renew Lease</button>
+      </div>
+      {% endif %}
+
+    {% elif l.status == 'PENDING' %}
+      <div class="alert alert-error" style="background: #fef3c7; color: #92400e; margin: 0;">
+        <i class="fa-solid fa-clock"></i> Awaiting admin approval.
+      </div>
+    {% elif l.status == 'COMPLETED' %}
+      <div class="alert alert-success" style="background: #d1fae5; color: #065f46; margin: 0;">
+        <i class="fa-solid fa-check"></i> Lease completed. Thank you!
+      </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="muted">You have no active or pending leases.</p>
+  {% endfor %}
+</div>
+
+<script>
+async function reportIssue(e, unitId, clientId) {
+  e.preventDefault();
+  const category = document.getElementById(`cat-${unitId}`).value;
+  const description = document.getElementById(`desc-${unitId}`).value;
+  
+  const res = await fetch('/api/client/issues', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ unitId, clientId, category, severity: 'HIGH', description })
+  });
+  if (res.ok) {
+    alert('Issue reported successfully. An admin will review it.');
+    location.reload();
+  }
+}
+
+async function renewLease(leaseId, currentEndDate) {
+  // Calculate +7 days from the current end date
+  let date = new Date(currentEndDate);
+  date.setDate(date.getDate() + 7);
+  let newEndDate = date.toISOString().split('T')[0];
+  
+  const res = await fetch(`/api/client/renew/${leaseId}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ new_end_date: newEndDate })
+  });
+  if (res.ok) {
+    alert(`Lease renewed successfully until ${newEndDate}!`);
+    location.reload();
+  }
+}
+</script>
+{% endblock %}
