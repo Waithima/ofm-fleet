@@ -246,6 +246,19 @@ def api_disapprove_lease(lease_id):
     send_email(client["email"], "Lease Request Update", f"Hello {client['name']},\n\nUnfortunately, your lease request for {unit['serial']} was not approved.")
     return jsonify({"ok": True})
 
+# --- NEW: ISSUE QUEUE PAGE ---
+@app.route("/admin/issues")
+@login_required
+def admin_issues():
+    issues = rows("""
+        SELECT i.*, u.serial, u.model, c.name AS client_name, c.email, c.phone 
+        FROM issues i 
+        JOIN units u ON u.id = i.unit_id 
+        JOIN clients c ON c.id = i.client_id 
+        ORDER BY i.created_at DESC
+    """)
+    return render_template("admin_issues.html", issues=issues, active="admin")
+
 # --- NEW: RESOLVE ISSUES ROUTE ---
 @app.route("/api/admin/issues/<int:issue_id>/resolve", methods=["POST"])
 @login_required
@@ -275,7 +288,6 @@ def api_resolve_issue(issue_id):
         
     return jsonify({"ok": True})
 
-# --- FIXED CSV EXPORT ---
 @app.route("/admin/export-csv")
 @login_required
 def export_csv():
@@ -285,7 +297,6 @@ def export_csv():
         writer = csv.writer(data, delimiter='\t')
         writer.writerow(["Lease ID", "Microscope Serial", "Microscope Model", "Client Name", "Email Address", "Phone Number", "County (Delivery)", "Institution (Delivery)", "Start Date", "End Date", "Current Status", "Date Requested"])
         for l in leases:
-            # Adding a space forces Excel to treat the phone as text (preventing 1.12E+08)
             phone = f" {l['phone']}" if l['phone'] else ""
             writer.writerow([l['id'], l['serial'], l['model'], l['name'], l['email'], phone, l['county'], l['institution'], l['start_date'], l['end_date'], l['status'], l['created_at']])
         yield data.getvalue()
