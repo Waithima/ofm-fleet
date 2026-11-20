@@ -1,4 +1,4 @@
-﻿import json, os, sqlite3, uuid, smtplib, csv, io
+import json, os, sqlite3, uuid, smtplib, csv, io
 import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
