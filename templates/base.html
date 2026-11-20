@@ -9,13 +9,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-</head>
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}"><meta name="theme-color" content="#c5247f"></head>
 <body style="display: flex; flex-direction: column; min-height: 100vh;">
   <nav class="nav">
     <div class="nav-left">
       <a href="/admin" class="admin-link" title="Admin Dashboard"><i class="fa-solid fa-lock"></i> Admin</a>
       <span class="divider">|</span>
-      <a class="brand" href="/"><i class="fa-solid fa-microscope"></i> OpenFlexure Fleet</a>
+      <a class="brand" href="/"><img src="https://raw.githubusercontent.com/rwb27/openflexure_microscope/master/logo.svg" alt="OFM Logo" style="height: 28px; margin-right: 8px; filter: brightness(0) saturate(100%) invert(24%) sepia(85%) saturate(2559%) hue-rotate(307deg) brightness(91%) contrast(93%);"> OpenFlexure Fleet</a>
     </div>
     <div class="nav-right">
       <a href="/" class="{{ 'active' if active == 'portal' }}">Catalog</a>
@@ -68,6 +68,7 @@
   <a href="https://wa.me/254112262056" target="_blank" style="position: fixed; bottom: 30px; right: 30px; background: #25D366; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; text-decoration: none;">
     <i class="fa-brands fa-whatsapp"></i>
   </a>
-</body>
+<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register("/static/sw.js"); }</script></body>
 </html>
+
 

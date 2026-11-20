@@ -1,0 +1,16 @@
+﻿{
+  "name": "OpenFlexure Fleet",
+  "short_name": "OFM Fleet",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#c5247f",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/rwb27/openflexure_microscope/master/logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
