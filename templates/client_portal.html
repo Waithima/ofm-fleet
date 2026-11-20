@@ -9,52 +9,78 @@
 </div>
 
 <div class="grid-2">
-  {% for l in leases %}
-  <div class="card hover-lift">
-    <div class="row-between mb-4">
-      <span class="badge badge-{{ l.status|lower }}">{{ l.status }}</span>
-      <span class="mono">{{ l.serial }}</span>
+  <!-- LEFT COLUMN: Your Leases -->
+  <div class="stack">
+    {% for l in leases %}
+    <div class="card hover-lift">
+      <div class="row-between mb-4">
+        <span class="badge badge-{{ l.status|lower }}">{{ l.status }}</span>
+        <span class="mono">{{ l.serial }}</span>
+      </div>
+      <h3>{{ l.model }}</h3>
+      
+      {% if l.status == 'ACTIVE' %}
+        <div class="card p-0" style="background: var(--gray-50); padding: 16px; border: none; margin-bottom: 24px;">
+          <div class="live-row" style="padding-top: 0;">
+            <span class="muted">Lease Start</span>
+            <span>{{ l.start_date[:10] }}</span>
+          </div>
+          <div class="live-row" style="padding-bottom: 0;">
+            <span class="muted">Expires</span>
+            <strong style="color: var(--pink);">{{ l.end_date[:10] }}</strong>
+          </div>
+        </div>
+
+        <h4 class="mb-2" style="font-family: var(--font-body); font-size: 15px;">Report a Malfunction</h4>
+        <form onsubmit="reportIssue(event, {{ l.unit_id }}, {{ client.id }})" style="margin-top: 12px;">
+          <select id="cat-{{ l.unit_id }}" class="input mb-2">
+            <option value="stage">Stage / Movement</option>
+            <option value="focus">Focus / Optics</option>
+            <option value="camera">Camera / Power</option>
+            <option value="physical">Physical Damage</option>
+            <option value="other">Other (Describe below)</option>
+          </select>
+          <textarea id="desc-{{ l.unit_id }}" class="input mb-4" rows="3" placeholder="Describe the issue you are experiencing..." required></textarea>
+          
+          <!-- Added proper spacing here -->
+          <button type="submit" class="btn btn-danger" style="width: 100%; margin-top: 8px;">Submit Issue</button>
+        </form>
+
+      {% elif l.status == 'PENDING' %}
+        <div class="alert alert-error" style="background: #fef3c7; color: #92400e; margin: 0;">
+          <i class="fa-solid fa-clock"></i> Awaiting admin approval. We will email you once dispatched.
+        </div>
+      {% elif l.status == 'COMPLETED' %}
+        <div class="alert alert-success" style="background: #d1fae5; color: #065f46; margin: 0;">
+          <i class="fa-solid fa-check"></i> Lease completed. Thank you!
+        </div>
+      {% endif %}
     </div>
-    <h3>{{ l.model }}</h3>
-    
-    {% if l.status == 'ACTIVE' %}
-      <div class="card p-0" style="background: var(--gray-50); padding: 16px; border: none; margin-bottom: 24px;">
-        <div class="live-row" style="padding-top: 0;">
-          <span>Lease Start</span>
-          <span>{{ l.start_date[:10] }}</span>
-        </div>
-        <div class="live-row" style="padding-bottom: 0;">
-          <span>Expires</span>
-          <strong style="color: var(--pink);">{{ l.end_date[:10] }}</strong>
-        </div>
-      </div>
-
-      <h4 class="mb-2" style="font-family: var(--font-body); font-size: 14px;">Report a Malfunction</h4>
-      <form onsubmit="reportIssue(event, {{ l.unit_id }}, {{ client.id }})">
-        <select id="cat-{{ l.unit_id }}" class="input mb-2">
-          <option value="stage">Stage / Movement</option>
-          <option value="focus">Focus / Optics</option>
-          <option value="camera">Camera / Power</option>
-          <option value="physical">Physical Damage</option>
-          <option value="other">Other (Describe below)</option>
-        </select>
-        <textarea id="desc-{{ l.unit_id }}" class="input mb-2" rows="3" placeholder="Describe the issue you are experiencing..." required></textarea>
-        <button type="submit" class="btn btn-danger btn-sm" style="width: 100%;">Submit Issue</button>
-      </form>
-
-    {% elif l.status == 'PENDING' %}
-      <div class="alert alert-error" style="background: #fef3c7; color: #92400e; margin: 0;">
-        <i class="fa-solid fa-clock"></i> Awaiting admin approval.
-      </div>
-    {% elif l.status == 'COMPLETED' %}
-      <div class="alert alert-success" style="background: #d1fae5; color: #065f46; margin: 0;">
-        <i class="fa-solid fa-check"></i> Lease completed. Thank you!
-      </div>
-    {% endif %}
+    {% else %}
+    <p class="muted">You have no active or pending leases.</p>
+    {% endfor %}
   </div>
-  {% else %}
-  <p class="muted">You have no active or pending leases.</p>
-  {% endfor %}
+
+  <!-- RIGHT COLUMN: Instructions & Guides -->
+  <div class="stack">
+    <div class="card" style="background: var(--pink-light); border-color: var(--pink);">
+      <h3 class="text-pink mb-2"><i class="fa-solid fa-circle-info"></i> How It Works</h3>
+      <p class="small mb-2"><strong>1. Request:</strong> Submit a lease request from the catalog. You will receive a pending confirmation email.</p>
+      <p class="small mb-2"><strong>2. Approval & Dispatch:</strong> Once approved, our team dispatches the microscope to your institution. You will receive a final "Lease Approved" email.</p>
+      <p class="small mb-2"><strong>3. Return:</strong> When your lease expires, you will receive a reminder email 1 day before. You can renew directly from this portal.</p>
+    </div>
+
+    <div class="card">
+      <h3 class="mb-2"><i class="fa-solid fa-triangle-exclamation" style="color: #d97706;"></i> Guidelines & Warnings</h3>
+      <ul class="small" style="padding-left: 20px; line-height: 1.8; color: var(--gray-600);">
+        <li><strong>Do not</strong> attempt to disassemble the microscope or clean the internal lenses.</li>
+        <li><strong>Do not</strong> use harsh chemicals or solvents on the 3D-printed parts.</li>
+        <li>Keep the unit away from liquids and excessive dust.</li>
+        <li>Always transport the microscope using the provided protective case.</li>
+        <li>If the stage makes a clicking noise, stop using it immediately and report it below.</li>
+      </ul>
+    </div>
+  </div>
 </div>
 
 <script>
