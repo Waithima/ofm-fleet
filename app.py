@@ -1,12 +1,12 @@
 ﻿import json, os, sqlite3, uuid, smtplib, csv, io
 import psycopg2
 import psycopg2.extras
+import resend
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from flask import Flask, g, jsonify, render_template, request, redirect, url_for, flash, Response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from email.message import EmailMessage
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DB_URL = os.environ.get("DATABASE_URL", "")
@@ -14,10 +14,7 @@ DB_URL = os.environ.get("DATABASE_URL", "")
 app = Flask(__name__)
 app.secret_key = "ofm-super-secret-key-change-in-production"
 
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USER = "jeffwaithima400@gmail.com"
-SMTP_PASS = "aogbqtsjysvpmvwj"
+resend.api_key = os.environ.get("RESEND_API_KEY", "")
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -85,11 +82,6 @@ def parse_config(u):
         except: u["configuration"] = {}
     return u
 
-import resend
-import os
-
-resend.api_key = os.environ.get("RESEND_API_KEY", "")
-
 def send_email(to_email, subject, body):
     if not to_email:
         return False
@@ -104,7 +96,10 @@ def send_email(to_email, subject, body):
         return True
     except Exception as e:
         print(f"❌ Failed to send email: {e}")
-        return Falsedef run_daily_checks():
+        return False
+
+
+def run_daily_checks():
     today = datetime.utcnow().date().isoformat()
     tomorrow = (datetime.utcnow().date() + timedelta(days=1)).isoformat()
     
@@ -200,29 +195,6 @@ def api_client_issue():
     execute("UPDATE units SET status='ISSUE_REPORTED' WHERE id=?", (data["unitId"],))
     return jsonify({"ok": True}), 201
 
-@app.route("/api/telemetry/heartbeat", methods=["POST"])
-def api_telemetry_heartbeat():
-    data = request.get_json(silent=True) or {}
-    serial = data.get("serial")
-    if not serial:
-        return jsonify({"ok": False, "error": "Missing serial"}), 400
-
-    unit = row("SELECT * FROM units WHERE serial=?", (serial,))
-    if not unit:
-        return jsonify({"ok": False, "error": f"Unknown unit serial: {serial}"}), 404
-
-    online = 1 if data.get("online") else 0
-    camera_ok = 1 if data.get("cameraOk") else 0
-    os_info = data.get("osInfo") or ""
-    error_log = data.get("errorLog")
-
-    execute(
-        "INSERT INTO telemetry (unit_id, online, os_info, camera_ok, error_log) VALUES (?, ?, ?, ?, ?)",
-        (unit["id"], online, os_info, camera_ok, error_log),
-    )
-    execute("UPDATE units SET last_seen_at=CURRENT_TIMESTAMP WHERE id=?", (unit["id"],))
-    return jsonify({"ok": True}), 200
-
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST" and check_password_hash(ADMIN_HASH, request.form.get("password")):
@@ -271,30 +243,17 @@ def api_update_status(unit_id):
 def admin_live():
     units = rows("""
         SELECT u.id, u.serial, u.model, u.status, t.online, t.camera_ok, t.received_at
-        FROM units u
-        LEFT JOIN telemetry t ON t.id = (
-            SELECT id FROM telemetry
-            WHERE unit_id = u.id
-            ORDER BY received_at DESC, id DESC
-            LIMIT 1
-        )
+        FROM units u LEFT JOIN telemetry t ON t.id = (SELECT id FROM telemetry WHERE unit_id = u.id ORDER BY received_at DESC LIMIT 1)
         ORDER BY u.serial
     """)
     now = datetime.utcnow()
     for u in units:
-        ts = u.get("received_at")
-        u["live"] = False
-        u["age_seconds"] = None
-        if ts:
+        if u["received_at"]:
             try:
-                dt = ts if isinstance(ts, datetime) else datetime.fromisoformat(str(ts))
-                if dt.tzinfo is not None:
-                    dt = dt.astimezone().replace(tzinfo=None)
-                age = (now - dt).total_seconds()
-                u["age_seconds"] = max(0, int(age))
-                u["live"] = age < 180
-            except Exception:
-                u["live"] = False
+                age = (now - datetime.fromisoformat(u["received_at"])).total_seconds()
+                u["live"], u["age_seconds"] = age < 180, int(age)
+            except: u["live"] = False
+        else: u["live"] = False
     return render_template("admin_live.html", units=units, active="admin")
 
 @app.route("/admin/requests")
@@ -358,7 +317,6 @@ def api_delete_unit(unit_id):
     execute("DELETE FROM units WHERE id=?", (unit_id,))
     return jsonify({"ok": True})
 
-# Auto-create tables for PostgreSQL on boot
 if DB_URL:
     try:
         conn = psycopg2.connect(DB_URL)
@@ -378,7 +336,3 @@ if DB_URL:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
-
-
