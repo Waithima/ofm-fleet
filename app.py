@@ -1,4 +1,4 @@
-import json, os, sqlite3, uuid, smtplib, csv, io
+﻿import json, os, sqlite3, uuid, smtplib, csv, io
 import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
@@ -85,32 +85,26 @@ def parse_config(u):
         except: u["configuration"] = {}
     return u
 
-def send_email(to_email, subject, body):
-    smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user = os.environ.get("SMTP_USER", "jeffwaithima400@gmail.com")
-    smtp_pass = os.environ.get("SMTP_PASS", "aogbqtsjysvpmvwj")
+import resend
+import os
 
+resend.api_key = os.environ.get("RESEND_API_KEY", "")
+
+def send_email(to_email, subject, body):
     if not to_email:
         return False
-
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = smtp_user
-    msg["To"] = to_email
     try:
-        with smtplib.SMTP(smtp_server, smtp_port, timeout=5) as server:
-            server.starttls()
-            if smtp_user and smtp_pass:
-                server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-        app.logger.info("Email sent to %s", to_email)
+        resend.Emails.send({
+            "from": "onboarding@resend.dev",
+            "to": [to_email],
+            "subject": subject,
+            "text": body,
+        })
+        print(f"📧 Real email sent to {to_email} via Resend")
         return True
     except Exception as e:
-        app.logger.warning("Email send failed to %s: %s", to_email, e)
-        return False
-
-def run_daily_checks():
+        print(f"❌ Failed to send email: {e}")
+        return Falsedef run_daily_checks():
     today = datetime.utcnow().date().isoformat()
     tomorrow = (datetime.utcnow().date() + timedelta(days=1)).isoformat()
     
@@ -384,5 +378,7 @@ if DB_URL:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
+
 
 
