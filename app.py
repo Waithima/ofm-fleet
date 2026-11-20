@@ -10,7 +10,6 @@ DB = os.path.join(BASE, "fleet.db")
 
 app = Flask(__name__)
 app.secret_key = "ofm-super-secret-key-change-in-production"
-app.permanent_session_lifetime = timedelta(minutes=30)
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
@@ -365,9 +364,14 @@ def api_delete_unit(unit_id):
     execute("DELETE FROM units WHERE id=?", (unit_id,))
     return jsonify({"ok": True})
 
+# --- AUTO-CREATE DATABASE ON STARTUP FOR RENDER ---
+if not os.path.exists(DB):
+    with open(os.path.join(BASE, "schema.sql"), encoding="utf-8") as f:
+        schema = f.read()
+    con = sqlite3.connect(DB)
+    con.executescript(schema)
+    con.close()
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
-
