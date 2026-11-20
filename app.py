@@ -85,25 +85,29 @@ def parse_config(u):
         except: u["configuration"] = {}
     return u
 
-def send_email(to_addr, subject, body):
-    if not to_addr or not SMTP_SERVER:
-        app.logger.warning("Skipping email to %s: SMTP not configured", to_addr)
-        return False
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = SMTP_USER or SMTP_SENDER or f"noreply@{SMTP_SERVER}"
-        msg["To"] = to_addr
-        msg.set_content(body)
+def send_email(to_email, subject, body):
+    smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_user = os.environ.get("SMTP_USER", "jeffwaithima400@gmail.com")
+    smtp_pass = os.environ.get("SMTP_PASS", "aogbqtsjysvpmvwj")
 
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=8) as server:
+    if not to_email:
+        return False
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = smtp_user
+    msg["To"] = to_email
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port, timeout=5) as server:
             server.starttls()
-            if SMTP_USER and SMTP_PASS:
-                server.login(SMTP_USER, SMTP_PASS)
+            if smtp_user and smtp_pass:
+                server.login(smtp_user, smtp_pass)
             server.send_message(msg)
+        app.logger.info("Email sent to %s", to_email)
         return True
-    except Exception as exc:
-        app.logger.warning("Email send failed to %s: %s", to_addr, exc)
+    except Exception as e:
+        app.logger.warning("Email send failed to %s: %s", to_email, e)
         return False
 
 def run_daily_checks():
