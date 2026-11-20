@@ -6,6 +6,7 @@ from email.mime.text import MIMEText
 from flask import Flask, g, jsonify, render_template, request, redirect, url_for, flash, Response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from email.message import EmailMessage
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DB_URL = os.environ.get("DATABASE_URL", "")
