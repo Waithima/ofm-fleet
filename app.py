@@ -85,25 +85,26 @@ def parse_config(u):
     return u
 
 def send_email(to_addr, subject, body):
-if not to_addr or not SMTP_SERVER:
-    app.logger.warning("Skipping email to %s: SMTP not configured", to_addr)
-    return False
-try:
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = SMTP_USER or SMTP_SENDER or f"noreply@{SMTP_SERVER}"
-    msg["To"] = to_addr
-    msg.set_content(body)
+    if not to_addr or not SMTP_SERVER:
+        app.logger.warning("Skipping email to %s: SMTP not configured", to_addr)
+        return False
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = SMTP_USER or SMTP_SENDER or f"noreply@{SMTP_SERVER}"
+        msg["To"] = to_addr
+        msg.set_content(body)
 
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=8) as server:
-        server.starttls()
-        if SMTP_USER and SMTP_PASS:
-            server.login(SMTP_USER, SMTP_PASS)
-        server.send_message(msg)
-    return True
-except Exception as exc:
-    app.logger.warning("Email send failed to %s: %s", to_addr, exc)
-    return False
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=8) as server:
+            server.starttls()
+            if SMTP_USER and SMTP_PASS:
+                server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+        return True
+    except Exception as exc:
+        app.logger.warning("Email send failed to %s: %s", to_addr, exc)
+        return False
+
 def run_daily_checks():
     today = datetime.utcnow().date().isoformat()
     tomorrow = (datetime.utcnow().date() + timedelta(days=1)).isoformat()
