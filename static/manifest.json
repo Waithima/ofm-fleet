@@ -7,9 +7,9 @@
   "theme_color": "#c5247f",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/openflexure/openflexure-microscope/master/docs/logo.svg",
+      "src": "https://yt3.googleusercontent.com/ytc/AIdro_lw2FzzAJWE2qKawZJjTy81e-nrQ-x6MvmPXirQle39Fw=s900-c-k-c0x00ffffff-no-rj",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
