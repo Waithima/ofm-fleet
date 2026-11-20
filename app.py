@@ -1,4 +1,4 @@
-﻿import json, os, sqlite3, uuid, smtplib, csv, io
+import json, os, sqlite3, uuid, smtplib, csv, io
 import psycopg2
 import psycopg2.extras
 from datetime import datetime, timedelta
@@ -40,7 +40,7 @@ def get_db():
             g.db.autocommit = True
         else:
             g.db = sqlite3.connect(os.path.join(BASE, "fleet.db"))
-        g.db.row_factory = sqlite3.Row if not DB_URL else None
+            g.db.row_factory = sqlite3.Row # Only set this for SQLite!
     return g.db
 
 @app.teardown_appcontext
@@ -67,9 +67,13 @@ def execute(sql, args=()):
     if DB_URL:
         sql = sql.replace("?", "%s").replace("datetime('now')", "CURRENT_TIMESTAMP")
         cur = db.cursor()
+        
+        # If it's an INSERT, append RETURNING id to get the new row's ID
         if "RETURNING" not in sql.upper() and sql.strip().upper().startswith("INSERT"):
             sql += " RETURNING id"
+            
         cur.execute(sql, args)
+        
         if "RETURNING" in sql.upper():
             return cur.fetchone()[0]
         return None
@@ -315,24 +319,6 @@ def api_delete_unit(unit_id):
     execute("DELETE FROM leases WHERE unit_id=?", (unit_id,))
     execute("DELETE FROM units WHERE id=?", (unit_id,))
     return jsonify({"ok": True})
-
-# Auto-create tables for PostgreSQL on boot
-if DB_URL:
-    try:
-        import psycopg2
-        conn = psycopg2.connect(DB_URL)
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS clients (id SERIAL PRIMARY KEY, name TEXT, email TEXT UNIQUE, phone TEXT, county TEXT, institution TEXT, access_token TEXT UNIQUE);
-            CREATE TABLE IF NOT EXISTS units (id SERIAL PRIMARY KEY, serial TEXT UNIQUE, model TEXT, configuration TEXT, image_url TEXT, status TEXT DEFAULT 'READY', last_seen_at TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS leases (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), status TEXT DEFAULT 'PENDING', deposit_cents INTEGER DEFAULT 0, daily_cents INTEGER DEFAULT 0, start_date TEXT, end_date TEXT, last_reminded_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), category TEXT, severity TEXT, status TEXT DEFAULT 'OPEN', description TEXT, photo_urls TEXT DEFAULT '[]', resolution TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS telemetry (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), online INTEGER, os_info TEXT, camera_ok INTEGER, error_log TEXT, received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-        """)
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print("DB Setup error:", e)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
