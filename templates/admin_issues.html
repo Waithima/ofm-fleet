@@ -1,15 +1,8 @@
 ﻿{% extends "base.html" %}
 {% block content %}
-<div class="row-between">
-  <h1>Issue &amp; maintenance queue</h1>
-  <form method="get">
-    <select class="input" name="status" onchange="this.form.submit()">
-      <option value="">All statuses</option>
-      {% for s in ['OPEN','ASSIGNED','IN_REPAIR','RESOLVED','CLOSED'] %}
-      <option value="{{ s }}" {{ 'selected' if status == s }}>{{ s }}</option>
-      {% endfor %}
-    </select>
-  </form>
+<div class="row-between mb-4">
+  <h1>Issue & Maintenance Queue</h1>
+  <a href="/admin" class="btn btn-ghost">Back to Fleet</a>
 </div>
 
 <div class="stack">
@@ -18,39 +11,87 @@
     <div class="row-between">
       <div>
         <div class="mono">{{ i.serial }} &middot; {{ i.model }}</div>
-        <div class="small muted">{{ i.customer_name }}</div>
-        <p>{{ i.description }}</p>
+        <div class="small muted">{{ i.client_name }} ({{ i.phone }})</div>
+        <p class="mb-2">{{ i.description }}</p>
         <div class="small muted">Category: {{ i.category }} &middot; Reported {{ i.created_at }}</div>
+        
+        {% if i.resolution %}
+          <div class="alert alert-success mt-4" style="padding: 10px; font-size: 13px;">
+            <strong>Resolution Note:</strong> {{ i.resolution }}
+          </div>
+        {% endif %}
       </div>
       <div class="stack-right">
         <div>
           <span class="badge badge-{{ i.severity|lower }}">{{ i.severity }}</span>
-          <span class="badge badge-{{ i.status|lower|replace('_','-') }}">{{ i.status }}</span>
+          <span class="badge badge-{{ i.status|lower }}">{{ i.status }}</span>
         </div>
-        <div class="flex">
-          <button class="btn btn-ghost" onclick="updateIssue({{ i.id }}, {status:'IN_REPAIR'})">Start repair</button>
-          <button class="btn btn-primary" onclick="resolveIssue({{ i.id }})">Resolve</button>
-        </div>
+        
+        {% if i.status == 'OPEN' or i.status == 'ISSUE_REPORTED' %}
+          <button class="btn btn-primary" onclick="openResolveModal({{ i.id }})">Respond & Resolve</button>
+        {% endif %}
       </div>
     </div>
   </div>
   {% else %}
-  <p class="muted">Nothing here.</p>
+  <p class="muted">No issues reported.</p>
   {% endfor %}
 </div>
 
+<!-- Resolution Modal -->
+<div id="resolveModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+  <div class="card" style="width: 100%; max-width: 500px;">
+    <h2>Resolve Issue</h2>
+    <p class="muted mb-4">Choose how to handle this repair.</p>
+    
+    <label class="label">Admin Response / Instructions
+      <textarea id="admin-msg" class="input" rows="3" placeholder="Type the solution or instructions here..."></textarea>
+    </label>
+    
+    <div class="stack mb-4">
+      <button class="btn btn-outline" onclick="resolveIssue('email')"><i class="fa-solid fa-envelope"></i> Send Email Reply Only</button>
+      <button class="btn btn-outline" onclick="resolveIssue('dropoff')"><i class="fa-solid fa-building"></i> Tell Client to Bring to Office</button>
+      
+      <div style="border: 1px solid var(--gray-200); padding: 16px; border-radius: 8px; margin-top: 8px;">
+        <label class="label">Schedule Technician Visit
+          <input type="date" id="visit-date" class="input mb-2">
+        </label>
+        <button class="btn btn-outline" onclick="resolveIssue('visit')"><i class="fa-solid fa-car"></i> Send Visit Date to Client</button>
+      </div>
+    </div>
+    
+    <button class="btn btn-ghost" onclick="document.getElementById('resolveModal').style.display='none'" style="width: 100%;">Cancel</button>
+  </div>
+</div>
+
 <script>
-async function updateIssue(id, patch) {
-  await fetch('/api/issues/' + id, {
-    method: 'PATCH',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(patch)
-  });
-  location.reload();
+let currentIssueId = null;
+
+function openResolveModal(id) {
+  currentIssueId = id;
+  document.getElementById('resolveModal').style.display = 'flex';
 }
-function resolveIssue(id) {
-  const r = prompt('Resolution notes:');
-  if (r) updateIssue(id, {status: 'RESOLVED', resolution: r});
+
+async function resolveIssue(action) {
+  const message = document.getElementById('admin-msg').value;
+  const date = document.getElementById('visit-date').value;
+  
+  if (action === 'visit' && !date) {
+    alert("Please select a date for the visit.");
+    return;
+  }
+
+  const res = await fetch(`/api/admin/issues/${currentIssueId}/resolve`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ action: action, message: message, date: date })
+  });
+  
+  if (res.ok) {
+    location.reload();
+  } else {
+    alert("Failed to resolve issue.");
+  }
 }
 </script>
 {% endblock %}
