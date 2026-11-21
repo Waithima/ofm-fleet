@@ -345,12 +345,22 @@ if DB_URL:
     try:
         conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
+        # 1. Create tables if they don't exist
         cur.execute("""
             CREATE TABLE IF NOT EXISTS clients (id SERIAL PRIMARY KEY, name TEXT, email TEXT UNIQUE, phone TEXT, county TEXT, institution TEXT, access_token TEXT UNIQUE);
             CREATE TABLE IF NOT EXISTS units (id SERIAL PRIMARY KEY, serial TEXT UNIQUE, model TEXT, configuration TEXT, image_url TEXT, status TEXT DEFAULT 'READY', last_seen_at TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS leases (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), status TEXT DEFAULT 'PENDING', is_renewal BOOLEAN DEFAULT FALSE, deposit_cents INTEGER DEFAULT 0, daily_cents INTEGER DEFAULT 0, start_date TEXT, end_date TEXT, last_reminded_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS leases (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), status TEXT DEFAULT 'PENDING', deposit_cents INTEGER DEFAULT 0, daily_cents INTEGER DEFAULT 0, start_date TEXT, end_date TEXT, last_reminded_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), category TEXT, severity TEXT, status TEXT DEFAULT 'OPEN', description TEXT, photo_urls TEXT DEFAULT '[]', resolution TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS telemetry (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), online INTEGER, os_info TEXT, camera_ok INTEGER, error_log TEXT, received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+        """)
+        # 2. Forcefully add the missing column if it doesn't exist
+        cur.execute("""
+            DO $ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leases' AND column_name='is_renewal') THEN 
+                    ALTER TABLE leases ADD COLUMN is_renewal BOOLEAN DEFAULT FALSE; 
+                END IF; 
+            END $;
         """)
         conn.commit()
         conn.close()
@@ -360,5 +370,6 @@ if DB_URL:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
