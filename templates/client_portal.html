@@ -112,12 +112,22 @@ async function reportIssue(e, unitId, clientId) {
 }
 
 async function renewLease(leaseId, currentEndDate) {
-  // Calculate +7 days from the current end date
   let date = new Date(currentEndDate);
   date.setDate(date.getDate() + 7);
   let newEndDate = date.toISOString().split('T')[0];
   
   const res = await fetch(`/api/client/renew/${leaseId}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ new_end_date: newEndDate })
+  });
+  if (res.ok) {
+    alert(`Renewal request submitted! The admin will review and approve it shortly.`);
+    location.reload();
+  } else {
+    alert('Failed to request renewal.');
+  }
+}`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ new_end_date: newEndDate })
@@ -131,3 +141,4 @@ async function renewLease(leaseId, currentEndDate) {
 }
 </script>
 {% endblock %}
+

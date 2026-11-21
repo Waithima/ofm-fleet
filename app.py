@@ -173,9 +173,17 @@ def client_portal(token):
 
 @app.route("/api/client/renew/<int:lease_id>", methods=["POST"])
 def api_renew_lease(lease_id):
-    execute("UPDATE leases SET end_date=?, last_reminded_at=NULL WHERE id=?", (request.get_json().get("new_end_date"), lease_id))
+    # Find the current active lease
+    lease = row("SELECT * FROM leases WHERE id=?", (lease_id,))
+    if not lease:
+        return jsonify({"error": "Lease not found"}), 404
+        
+    # Create a new PENDING lease for the same unit and client, starting when the old one ends
+    execute("""INSERT INTO leases (unit_id, client_id, status, start_date, end_date) 
+               VALUES (?, ?, 'PENDING', ?, ?)""", 
+            (lease['unit_id'], lease['client_id'], lease['end_date'], request.get_json().get("new_end_date")))
+            
     return jsonify({"ok": True})
-
 @app.route("/api/client/issues", methods=["POST"])
 def api_client_issue():
     data = request.get_json()
@@ -343,3 +351,4 @@ if DB_URL:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
