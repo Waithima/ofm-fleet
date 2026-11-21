@@ -148,38 +148,27 @@ def lease_request(unit_id):
         return render_template("lease_success.html", magic_link=magic_link, email=email)
     return render_template("lease_form.html", unit=unit)
 
-# --- FIXED CLIENT PORTAL ROUTE ---
 @app.route("/my-portal/<token>")
 def client_portal(token):
     run_daily_checks()
     client = row("SELECT * FROM clients WHERE access_token=?", (token,))
     if not client: return "Invalid link.", 404
-    
-    # Strictly filter by the client's ID to prevent mixing
-    leases = rows("""
-        SELECT l.*, u.serial, u.model, u.image_url, u.status AS unit_status 
-        FROM leases l 
-        JOIN units u ON u.id = l.unit_id 
-        WHERE l.client_id = ? 
-        ORDER BY l.id DESC
-    """, (client["id"],))
-    
+    leases = rows("SELECT l.*, u.serial, u.model, u.image_url, u.status AS unit_status FROM leases l JOIN units u ON u.id = l.unit_id WHERE l.client_id = ? ORDER BY l.id DESC", (client["id"],))
     today = datetime.utcnow().date()
     for l in leases:
         end_date = datetime.strptime(l['end_date'], "%Y-%m-%d").date()
         l['show_renew'] = (end_date - today).days <= 1 and l['status'] == 'ACTIVE'
-        
     return render_template("client_portal.html", client=client, leases=leases, token=token)
 
 @app.route("/api/client/renew/<int:lease_id>", methods=["POST"])
 def api_renew_lease(lease_id):
     lease = row("SELECT * FROM leases WHERE id=?", (lease_id,))
     if not lease: return jsonify({"error": "Lease not found"}), 404
-    
-    execute("""INSERT INTO leases (unit_id, client_id, status, is_renewal, start_date, end_date) 
-               VALUES (?, ?, 'PENDING', TRUE, ?, ?)""", 
+    execute("INSERT INTO leases (unit_id, client_id, status, is_renewal, start_date, end_date) VALUES (?, ?, 'PENDING', TRUE, ?, ?)", 
             (lease['unit_id'], lease['client_id'], lease['end_date'], request.get_json().get("new_end_date")))
-    return jsonify({"ok": True})@app.route("/api/client/issues", methods=["POST"])
+    return jsonify({"ok": True})
+
+@app.route("/api/client/issues", methods=["POST"])
 def api_client_issue():
     data = request.get_json()
     execute("INSERT INTO issues (unit_id, client_id, category, severity, description, photo_urls) VALUES (?,?,?,?,?,?)", (data["unitId"], data["clientId"], data["category"], data["severity"], data["description"], "[]"))
@@ -256,6 +245,7 @@ def api_approve_lease(lease_id):
         
     send_email(client["email"], subject, body)
     return jsonify({"ok": True})
+
 @app.route("/api/admin/requests/<int:lease_id>/disapprove", methods=["POST"])
 @login_required
 def api_disapprove_lease(lease_id):
@@ -274,6 +264,7 @@ def api_disapprove_lease(lease_id):
         
     send_email(client["email"], subject, body)
     return jsonify({"ok": True})
+
 @app.route("/admin/issues")
 @login_required
 def admin_issues():
@@ -345,22 +336,12 @@ if DB_URL:
     try:
         conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
-        # 1. Create tables if they don't exist
         cur.execute("""
             CREATE TABLE IF NOT EXISTS clients (id SERIAL PRIMARY KEY, name TEXT, email TEXT UNIQUE, phone TEXT, county TEXT, institution TEXT, access_token TEXT UNIQUE);
             CREATE TABLE IF NOT EXISTS units (id SERIAL PRIMARY KEY, serial TEXT UNIQUE, model TEXT, configuration TEXT, image_url TEXT, status TEXT DEFAULT 'READY', last_seen_at TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS leases (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), status TEXT DEFAULT 'PENDING', deposit_cents INTEGER DEFAULT 0, daily_cents INTEGER DEFAULT 0, start_date TEXT, end_date TEXT, last_reminded_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS leases (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), status TEXT DEFAULT 'PENDING', is_renewal BOOLEAN DEFAULT FALSE, deposit_cents INTEGER DEFAULT 0, daily_cents INTEGER DEFAULT 0, start_date TEXT, end_date TEXT, last_reminded_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), category TEXT, severity TEXT, status TEXT DEFAULT 'OPEN', description TEXT, photo_urls TEXT DEFAULT '[]', resolution TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS telemetry (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), online INTEGER, os_info TEXT, camera_ok INTEGER, error_log TEXT, received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-        """)
-        # 2. Forcefully add the missing column if it doesn't exist
-        cur.execute("""
-            DO $ 
-            BEGIN 
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leases' AND column_name='is_renewal') THEN 
-                    ALTER TABLE leases ADD COLUMN is_renewal BOOLEAN DEFAULT FALSE; 
-                END IF; 
-            END $;
         """)
         conn.commit()
         conn.close()
@@ -370,6 +351,3 @@ if DB_URL:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
-
