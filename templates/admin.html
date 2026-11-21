@@ -1,14 +1,15 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block content %}
-<div class="row-between mb-4">
+<div class="row-between mb-4" style="flex-wrap: wrap; gap: 16px;">
   <div>
     <h1>Admin Control Center</h1>
     <p class="muted">Manage fleet, view live telemetry, and process repairs.</p>
   </div>
-  <div class="flex">
+  <div class="flex" style="flex-wrap: wrap;">
+    <a href="/admin/export-csv" class="btn btn-outline"><i class="fa-solid fa-download"></i> Export CSV</a>
     <a href="/admin/requests" class="btn btn-ghost"><i class="fa-solid fa-envelope-open-text"></i> Lease Requests</a>
+    <a href="/admin/issues" class="btn btn-ghost"><i class="fa-solid fa-clipboard-list"></i> Issue Queue</a>
     <a href="/admin/live" class="btn btn-primary"><i class="fa-solid fa-satellite-dish"></i> Live Monitor</a>
-    <a href="/admin/issues" class="btn btn-ghost"><i class="fa-solid fa-clipboard-list"></i> Issues</a>
   </div>
 </div>
 
@@ -20,32 +21,64 @@
 
 <div class="card mb-4">
   <h2><i class="fa-solid fa-plus"></i> Add Microscope to Fleet</h2>
-  <form id="add-unit-form" class="flex-form">
-    <input type="text" id="new-serial" placeholder="Serial (e.g. OFM-0017)" required class="input">
-    <input type="text" id="new-model" placeholder="Model (e.g. OFM-Brightfield-v7)" required class="input">
-    <input type="url" id="new-image" placeholder="Image URL (https://...)" class="input">
+  <form id="add-unit-form" class="flex-form" style="flex-wrap: wrap;">
+    <input type="text" id="new-serial" placeholder="Serial (e.g. OFM-0006)" required class="input" style="flex: 1; min-width: 200px;">
+    <input type="text" id="new-model" placeholder="Model (e.g. OFM-Brightfield-v7)" required class="input" style="flex: 1; min-width: 200px;">
+    <input type="url" id="new-image" placeholder="Image URL (https://...)" class="input" style="flex: 1; min-width: 200px;">
     <button type="submit" class="btn btn-primary">Add Unit</button>
   </form>
 </div>
 
 <h2>Fleet Inventory</h2>
-<div class="card p-0">
-  <table class="table">
+<div class="card p-0" style="overflow-x: auto;">
+  <table class="table" style="min-width: 800px;">
     <thead>
-      <tr><th>Serial</th><th>Model</th><th>Status</th><th>Leased to</th><th>Last seen</th><th>Actions</th></tr>
+      <tr><th>Serial</th><th>Model</th><th>Status</th><th>Leased to</th><th>Booked Until</th><th>Actions</th></tr>
     </thead>
     <tbody>
     {% for u in units %}
       <tr>
         <td class="mono">{{ u.serial }}</td>
         <td>{{ u.model }}</td>
-        <td><span class="badge badge-{{ u.status|lower|replace('_','-') }}">{{ u.status|replace('_',' ') }}</span></td>
-        <td>{{ u.client_name or '—' }}</td>
-        <td class="muted">{{ u.last_seen_at or '—' }}</td>
         <td>
-          <a href="/admin/units/{{ u.id }}" class="btn btn-ghost btn-sm">View</a>
-          <button class="btn btn-danger btn-sm" onclick="deleteUnit({{ u.id }}, '{{ u.serial }}')">Delete</button>
+          <select class="input" style="padding: 4px 8px; font-size: 12px; width: auto;" onchange="updateStatus('{{ u.id }}', this.value)">
+            <option value="READY" {% if u.status == 'READY' %}selected{% endif %}>READY</option>
+            <option value="LEASED" {% if u.status == 'LEASED' %}selected{% endif %}>LEASED</option>
+            <option value="RESERVED" {% if u.status == 'RESERVED' %}selected{% endif %}>RESERVED</option>
+            <option value="MAINTENANCE" {% if u.status == 'MAINTENANCE' %}selected{% endif %}>MAINTENANCE</option>
+            <option value="ISSUE_REPORTED" {% if u.status == 'ISSUE_REPORTED' %}selected{% endif %}>ISSUE REPORTED</option>
+          </select>
         </td>
+        <td>{{ u.client_name or '—' }}</td>
+        <td class="muted">{{ u.end_date[:10] if u.end_date else '—' }}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="deleteUnit('{{ u.id }}', '{{ u.serial }}')">Delete</button>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2 class="mt-4">Lease History (Full Records)</h2>
+<div class="card p-0" style="overflow-x: auto;">
+  <table class="table" style="min-width: 900px; font-size: 13px;">
+    <thead>
+      <tr>
+        <th>Date Requested</th><th>Serial</th><th>Client</th><th>Email</th><th>County</th><th>Institution</th><th>Start - End</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for l in leases %}
+      <tr>
+        <td class="muted">{{ l.created_at.strftime("%Y-%m-%d %H:%M") if l.created_at and l.created_at.strftime is defined else (l.created_at[:16] if l.created_at else "") }}</td>
+        <td class="mono">{{ l.serial }}</td>
+        <td>{{ l.client_name }}</td>
+        <td>{{ l.email }}</td>
+        <td>{{ l.county }}</td>
+        <td>{{ l.institution }}</td>
+        <td>{{ l.start_date[:10] }} to {{ l.end_date[:10] }}</td>
+        <td><span class="badge badge-{{ l.status|lower }}">{{ l.status }}</span></td>
       </tr>
     {% endfor %}
     </tbody>
@@ -65,14 +98,25 @@ document.getElementById('add-unit-form').addEventListener('submit', async (e) =>
     })
   });
   if (res.ok) location.reload();
-  else alert(await res.json().then(d => d.error));
+  else alert("Error adding unit.");
 });
 
 async function deleteUnit(id, serial) {
-  if (!confirm(`Are you sure you want to remove microscope ${serial} from the fleet?`)) return;
-  const res = await fetch(`/api/admin/units/${id}`, { method: 'DELETE' });
-  if (res.ok) location.reload();
-  else alert('Failed to delete');
+  if (!confirm(`Remove microscope ${serial}?`)) return;
+  await fetch(`/api/admin/units/${id}`, { method: 'DELETE' });
+  location.reload();
+}
+
+async function updateStatus(id, status) {
+  const res = await fetch(`/api/admin/units/${id}/status`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ status: status })
+  });
+  if (!res.ok) alert("Failed to update status.");
+  else location.reload();
 }
 </script>
 {% endblock %}
+
+
