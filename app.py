@@ -173,18 +173,13 @@ def client_portal(token):
 
 @app.route("/api/client/renew/<int:lease_id>", methods=["POST"])
 def api_renew_lease(lease_id):
-    # Find the current active lease
     lease = row("SELECT * FROM leases WHERE id=?", (lease_id,))
-    if not lease:
-        return jsonify({"error": "Lease not found"}), 404
-        
-    # Create a new PENDING lease for the same unit and client, starting when the old one ends
-    execute("""INSERT INTO leases (unit_id, client_id, status, start_date, end_date) 
-               VALUES (?, ?, 'PENDING', ?, ?)""", 
+    if not lease: return jsonify({"error": "Lease not found"}), 404
+    
+    execute("""INSERT INTO leases (unit_id, client_id, status, is_renewal, start_date, end_date) 
+               VALUES (?, ?, 'PENDING', TRUE, ?, ?)""", 
             (lease['unit_id'], lease['client_id'], lease['end_date'], request.get_json().get("new_end_date")))
-            
-    return jsonify({"ok": True})
-@app.route("/api/client/issues", methods=["POST"])
+    return jsonify({"ok": True})@app.route("/api/client/issues", methods=["POST"])
 def api_client_issue():
     data = request.get_json()
     execute("INSERT INTO issues (unit_id, client_id, category, severity, description, photo_urls) VALUES (?,?,?,?,?,?)", (data["unitId"], data["clientId"], data["category"], data["severity"], data["description"], "[]"))
@@ -251,9 +246,16 @@ def api_approve_lease(lease_id):
     client = row("SELECT * FROM clients WHERE id=?", (lease["client_id"],))
     unit = row("SELECT * FROM units WHERE id=?", (lease["unit_id"],))
     magic_link = f"https://ofm-fleet.onrender.com/my-portal/{client['access_token']}"
-    send_email(client["email"], "Lease Approved!", f"Hello {client['name']},\n\nGreat news! Your lease for {unit['serial']} has been approved.\n\nAccess your portal here:\n{magic_link}")
+    
+    if lease.get('is_renewal'):
+        subject = "Renewal Approved!"
+        body = f"Hello {client['name']},\n\nYour renewal request for {unit['serial']} has been APPROVED.\n\nNew Expiry Date: {lease['end_date'][:10]}\n\nAccess your portal here:\n{magic_link}"
+    else:
+        subject = "Lease Approved!"
+        body = f"Hello {client['name']},\n\nGreat news! Your lease for {unit['serial']} has been approved.\n\nAccess your portal here:\n{magic_link}"
+        
+    send_email(client["email"], subject, body)
     return jsonify({"ok": True})
-
 @app.route("/api/admin/requests/<int:lease_id>/disapprove", methods=["POST"])
 @login_required
 def api_disapprove_lease(lease_id):
@@ -262,9 +264,16 @@ def api_disapprove_lease(lease_id):
     execute("UPDATE units SET status='READY' WHERE id=?", (lease["unit_id"],))
     client = row("SELECT * FROM clients WHERE id=?", (lease["client_id"],))
     unit = row("SELECT * FROM units WHERE id=?", (lease["unit_id"],))
-    send_email(client["email"], "Lease Request Update", f"Hello {client['name']},\n\nUnfortunately, your lease request for {unit['serial']} was not approved.")
+    
+    if lease.get('is_renewal'):
+        subject = "Renewal Request Update"
+        body = f"Hello {client['name']},\n\nUnfortunately, your renewal request for {unit['serial']} was NOT approved.\n\nPlease return the unit by your original end date."
+    else:
+        subject = "Lease Request Update"
+        body = f"Hello {client['name']},\n\nUnfortunately, your lease request for {unit['serial']} was not approved."
+        
+    send_email(client["email"], subject, body)
     return jsonify({"ok": True})
-
 @app.route("/admin/issues")
 @login_required
 def admin_issues():
@@ -339,7 +348,7 @@ if DB_URL:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS clients (id SERIAL PRIMARY KEY, name TEXT, email TEXT UNIQUE, phone TEXT, county TEXT, institution TEXT, access_token TEXT UNIQUE);
             CREATE TABLE IF NOT EXISTS units (id SERIAL PRIMARY KEY, serial TEXT UNIQUE, model TEXT, configuration TEXT, image_url TEXT, status TEXT DEFAULT 'READY', last_seen_at TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS leases (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), status TEXT DEFAULT 'PENDING', deposit_cents INTEGER DEFAULT 0, daily_cents INTEGER DEFAULT 0, start_date TEXT, end_date TEXT, last_reminded_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS leases (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), status TEXT DEFAULT 'PENDING', is_renewal BOOLEAN DEFAULT FALSE, deposit_cents INTEGER DEFAULT 0, daily_cents INTEGER DEFAULT 0, start_date TEXT, end_date TEXT, last_reminded_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), client_id INTEGER REFERENCES clients(id), category TEXT, severity TEXT, status TEXT DEFAULT 'OPEN', description TEXT, photo_urls TEXT DEFAULT '[]', resolution TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS telemetry (id SERIAL PRIMARY KEY, unit_id INTEGER REFERENCES units(id), online INTEGER, os_info TEXT, camera_ok INTEGER, error_log TEXT, received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
         """)
@@ -351,4 +360,5 @@ if DB_URL:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 

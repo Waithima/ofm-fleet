@@ -10,7 +10,7 @@
   <div class="card">
     <div class="row-between">
       <div>
-        <h3 class="mb-2">{{ l.client_name }} wants <span class="mono">{{ l.serial }}</span></h3>
+        <h3 class="mb-2">{{ l.client_name }} wants <span class="mono">{{ l.serial }}</span> {% if l.is_renewal %}<span class="badge" style="background: #e0f2fe; color: #0369a1;">RENEWAL REQUEST</span>{% else %}<span class="badge" style="background: #d1fae5; color: #065f46;">NEW LEASE</span>{% endif %}</h3>
         <p class="small muted mb-2">Email: {{ l.email }} | Phone: {{ l.phone }}</p>
         <p class="small muted mb-2">County: {{ l.county }} | Institution: {{ l.institution }}</p>
         <p class="small">Requested Dates: {{ l.start_date[:10] }} to {{ l.end_date[:10] }}</p>
@@ -40,3 +40,4 @@ async function disapproveLease(id) {
 }
 </script>
 {% endblock %}
+
