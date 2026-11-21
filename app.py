@@ -361,58 +361,11 @@ if DB_URL:
 
 
 
-# --- MPESA SANDBOX INTEGRATION ---
-MPESA_CONSUMER_KEY = "PASTE_YOUR_CONSUMER_KEY_HERE"
-MPESA_CONSUMER_SECRET = "PASTE_YOUR_CONSUMER_SECRET_HERE"
-MPESA_SHORTCODE = "174379"
-MPESA_PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"
-MPESA_CALLBACK_URL = "https://ofm-fleet.onrender.com/api/mpesa/callback"
 
-def get_mpesa_token():
-    api_url = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-    auth_string = f"{MPESA_CONSUMER_KEY}:{MPESA_CONSUMER_SECRET}"
-    encoded_auth = base64.b64encode(auth_string.encode()).decode()
-    headers = {"Authorization": f"Basic {encoded_auth}"}
-    response = requests.get(api_url, headers=headers)
-    return response.json().get("access_token")
 
-@app.route("/api/mpesa/pay", methods=["POST"])
-def mpesa_pay():
-    data = request.get_json()
-    phone = data.get("phone")
-    amount = data.get("amount", 1)
-    
-    token = get_mpesa_token()
-    if not token:
-        return jsonify({"error": "Could not get M-Pesa token"}), 500
-        
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    password = base64.b64encode(f"{MPESA_SHORTCODE}{MPESA_PASSKEY}{timestamp}".encode()).decode()
-    
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    payload = {
-        "BusinessShortCode": MPESA_SHORTCODE,
-        "Password": password,
-        "Timestamp": timestamp,
-        "TransactionType": "CustomerPayBillOnline",
-        "Amount": amount,
-        "PartyA": phone,
-        "PartyB": MPESA_SHORTCODE,
-        "PhoneNumber": phone,
-        "CallBackURL": MPESA_CALLBACK_URL,
-        "AccountReference": "OFM Lease",
-        "TransactionDesc": "Microscope Deposit"
-    }
-    
-    response = requests.post("https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest", json=payload, headers=headers)
-    return jsonify(response.json())
 
-@app.route("/api/mpesa/callback", methods=["POST"])
-def mpesa_callback():
-    data = request.get_json()
-    print("MPESA CALLBACK RECEIVED:", data)
-    return jsonify({"ResultCode": 0, "ResultDesc": "Success"})
-# ---------------------------------
+
+
 
 
 # --- MPESA SANDBOX INTEGRATION ---
@@ -471,9 +424,3 @@ def mpesa_callback():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
-
-
-
-
