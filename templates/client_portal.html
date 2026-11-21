@@ -31,6 +31,14 @@
           </div>
         </div>
 
+        <!-- RENEW BUTTON -->
+        {% if l.show_renew %}
+        <div class="alert mb-4" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; padding: 12px; font-size: 14px;">
+          <i class="fa-solid fa-triangle-exclamation"></i> Your lease is ending soon!
+        </div>
+        <button class="btn btn-primary mb-4" style="width: 100%;" onclick="renewLease({{ l.id }}, '{{ l.end_date }}')">Renew for 7 Days</button>
+        {% endif %}
+
         <h4 class="mb-2" style="font-family: var(--font-body); font-size: 15px;">Report a Malfunction</h4>
         <form onsubmit="reportIssue(event, {{ l.unit_id }}, {{ client.id }})" style="margin-top: 12px;">
           <select id="cat-{{ l.unit_id }}" class="input mb-2">
@@ -42,11 +50,11 @@
           </select>
           <textarea id="desc-{{ l.unit_id }}" class="input mb-4" rows="3" placeholder="Describe the issue you are experiencing..." required></textarea>
           
-          <!-- Added proper spacing here -->
           <button type="submit" class="btn btn-danger" style="width: 100%; margin-top: 8px;">Submit Issue</button>
         </form>
+
         <div class="alert mt-4" style="background: #dcfce7; color: #166534; padding: 12px; border-radius: 8px; font-size: 13px;">
-          <i class="fa-brands fa-whatsapp"></i> <strong>Tip:</strong> If you are reporting physical damage or a hardware failure, please click the green WhatsApp button in the bottom right corner to send us a photo of the issue.
+          <i class="fa-brands fa-whatsapp"></i> <strong>Tip:</strong> If you are reporting physical damage, please click the green WhatsApp button to send us a photo.
         </div>
 
       {% elif l.status == 'PENDING' %}
@@ -69,7 +77,7 @@
     <div class="card" style="background: var(--pink-light); border-color: var(--pink);">
       <h3 class="text-pink mb-2"><i class="fa-solid fa-circle-info"></i> How It Works</h3>
       <p class="small mb-2"><strong>1. Request:</strong> Submit a lease request from the catalog. You will receive a pending confirmation email.</p>
-      <p class="small mb-2"><strong>2. Approval & Dispatch:</strong> Once approved, our team dispatches the microscope to your institution. You will receive a final "Lease Approved" email.</p>
+      <p class="small mb-2"><strong>2. Approval & Dispatch:</strong> Once approved, our team dispatches the microscope to your institution.</p>
       <p class="small mb-2"><strong>3. Return:</strong> When your lease expires, you will receive a reminder email 1 day before. You can renew directly from this portal.</p>
     </div>
 
@@ -80,7 +88,7 @@
         <li><strong>Do not</strong> use harsh chemicals or solvents on the 3D-printed parts.</li>
         <li>Keep the unit away from liquids and excessive dust.</li>
         <li>Always transport the microscope using the provided protective case.</li>
-        <li>If the stage makes a clicking noise, stop using it immediately and report it below.</li>
+        <li>If the stage makes a clicking noise, stop using it immediately and report it.</li>
       </ul>
     </div>
   </div>
@@ -102,6 +110,24 @@ async function reportIssue(e, unitId, clientId) {
     document.getElementById(`desc-${unitId}`).value = '';
   }
 }
+
+async function renewLease(leaseId, currentEndDate) {
+  // Calculate +7 days from the current end date
+  let date = new Date(currentEndDate);
+  date.setDate(date.getDate() + 7);
+  let newEndDate = date.toISOString().split('T')[0];
+  
+  const res = await fetch(`/api/client/renew/${leaseId}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ new_end_date: newEndDate })
+  });
+  if (res.ok) {
+    alert(`Lease renewed successfully until ${newEndDate}!`);
+    location.reload();
+  } else {
+    alert('Failed to renew lease.');
+  }
+}
 </script>
 {% endblock %}
-
