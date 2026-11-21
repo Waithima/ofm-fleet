@@ -109,6 +109,10 @@ def run_daily_checks():
         send_email(client['email'], "Lease Ending Reminder", body)
         execute("UPDATE leases SET last_reminded_at=datetime('now') WHERE id=?", (l['id'],))
 
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
 @app.route("/")
 def index():
     run_daily_checks()
@@ -351,3 +355,4 @@ if DB_URL:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
