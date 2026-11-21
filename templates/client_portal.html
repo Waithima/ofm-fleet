@@ -36,6 +36,7 @@
           <i class="fa-solid fa-triangle-exclamation"></i> Your lease is ending soon!
         </div>
         <button class="btn btn-primary mb-4" style="width: 100%;" onclick="renewLease({{ l.id }}, '{{ l.end_date }}')">Renew for 7 Days</button>
+<button class="btn btn-outline mb-4" style="width: 100%;" onclick="payMpesa()">Test M-Pesa Payment</button>
         {% endif %}
 
         <h4 class="mb-2" style="font-family: var(--font-body); font-size: 15px;">Report a Malfunction</h4>
@@ -133,5 +134,23 @@ async function renewLease(leaseId, currentEndDate) {
     alert('Failed to request renewal.');
   }
 }
+async function payMpesa() {
+  const phone = prompt("Enter phone number for M-Pesa (e.g., 254708374149):");
+  if (!phone) return;
+  
+  const res = await fetch('/api/mpesa/pay', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ phone: phone, amount: 1 })
+  });
+  
+  const data = await res.json();
+  if (data.ResponseCode === "0") {
+    alert("STK Push sent successfully! Check your phone for the prompt.");
+  } else {
+    alert("M-Pesa Error: " + (data.errorMessage || JSON.stringify(data)));
+  }
+}
 </script>
 {% endblock %}
+
