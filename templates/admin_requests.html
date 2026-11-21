@@ -10,13 +10,20 @@
   <div class="card">
     <div class="row-between">
       <div>
-        <h3 class="mb-2">{{ l.client_name }} wants <span class="mono">{{ l.serial }}</span> {% if l.is_renewal %}<span class="badge" style="background: #e0f2fe; color: #0369a1;">RENEWAL REQUEST</span>{% else %}<span class="badge" style="background: #d1fae5; color: #065f46;">NEW LEASE</span>{% endif %}</h3>
+        <h3 class="mb-2">
+          {{ l.client_name }} wants <span class="mono">{{ l.serial }}</span> 
+          {% if l.is_renewal %}
+            <span class="badge" style="background: #e0f2fe; color: #0369a1;">RENEWAL REQUEST</span>
+          {% else %}
+            <span class="badge" style="background: #d1fae5; color: #065f46;">NEW LEASE</span>
+          {% endif %}
+        </h3>
         <p class="small muted mb-2">Email: {{ l.email }} | Phone: {{ l.phone }}</p>
         <p class="small muted mb-2">County: {{ l.county }} | Institution: {{ l.institution }}</p>
         <p class="small">Requested Dates: {{ l.start_date[:10] }} to {{ l.end_date[:10] }}</p>
       </div>
       <div class="flex" style="flex-direction: column; gap: 8px;">
-        <button class="btn btn-primary" onclick="approveLease({{ l.id }})">Approve & Dispatch</button>
+        <button class="btn btn-primary" onclick="approveLease({{ l.id }})">Approve</button>
         <button class="btn btn-danger" onclick="disapproveLease({{ l.id }})">Disapprove</button>
       </div>
     </div>
@@ -28,16 +35,15 @@
 
 <script>
 async function approveLease(id) {
-  if (!confirm('Approve this lease? The microscope will be marked as LEASED.')) return;
+  if (!confirm('Approve this request? An email will be sent to the client.')) return;
   const res = await fetch(`/api/admin/requests/${id}/approve`, { method: 'POST' });
   if (res.ok) location.reload();
 }
 
 async function disapproveLease(id) {
-  if (!confirm('Disapprove this request? The microscope will go back to READY.')) return;
+  if (!confirm('Disapprove this request? An email will be sent to the client.')) return;
   const res = await fetch(`/api/admin/requests/${id}/disapprove`, { method: 'POST' });
   if (res.ok) location.reload();
 }
 </script>
 {% endblock %}
-

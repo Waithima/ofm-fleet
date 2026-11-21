@@ -9,7 +9,6 @@
 </div>
 
 <div class="grid-2">
-  <!-- LEFT COLUMN: Your Leases -->
   <div class="stack">
     {% for l in leases %}
     <div class="card hover-lift">
@@ -31,7 +30,7 @@
           </div>
         </div>
 
-        <!-- RENEW BUTTON -->
+        <!-- Show warning and button ONLY if they haven't already submitted a renewal -->
         {% if l.show_renew %}
         <div class="alert mb-4" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; padding: 12px; font-size: 14px;">
           <i class="fa-solid fa-triangle-exclamation"></i> Your lease is ending soon!
@@ -57,10 +56,17 @@
           <i class="fa-brands fa-whatsapp"></i> <strong>Tip:</strong> If you are reporting physical damage, please click the green WhatsApp button to send us a photo.
         </div>
 
-      {% elif l.status == 'PENDING' %}{% if l.is_renewal %}<div class="alert" style="background: #e0f2fe; color: #0369a1; margin: 0;"><i class="fa-solid fa-clock"></i> Renewal Received: Awaiting Admin Approval.</div>{% else %}<div class="alert alert-error" style="background: #fef3c7; color: #92400e; margin: 0;"><i class="fa-solid fa-clock"></i> Awaiting initial approval. We will email you once dispatched.</div>{% endif %}{% elif false %}{% elif l.status == 'PENDING' %}
-        <div class="alert alert-error" style="background: #fef3c7; color: #92400e; margin: 0;">
-          <i class="fa-solid fa-clock"></i> Awaiting admin approval. We will email you once dispatched.
-        </div>
+      {% elif l.status == 'PENDING' %}
+        {% if l.is_renewal %}
+          <div class="alert" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; margin: 0;">
+            <i class="fa-solid fa-clock"></i> Renewal request received. Awaiting admin approval.
+          </div>
+        {% else %}
+          <div class="alert alert-error" style="background: #fef3c7; color: #92400e; margin: 0;">
+            <i class="fa-solid fa-clock"></i> Awaiting initial approval. We will email you once dispatched.
+          </div>
+        {% endif %}
+        
       {% elif l.status == 'COMPLETED' %}
         <div class="alert alert-success" style="background: #d1fae5; color: #065f46; margin: 0;">
           <i class="fa-solid fa-check"></i> Lease completed. Thank you!
@@ -72,7 +78,6 @@
     {% endfor %}
   </div>
 
-  <!-- RIGHT COLUMN: Instructions & Guides -->
   <div class="stack">
     <div class="card" style="background: var(--pink-light); border-color: var(--pink);">
       <h3 class="text-pink mb-2"><i class="fa-solid fa-circle-info"></i> How It Works</h3>
@@ -127,30 +132,6 @@ async function renewLease(leaseId, currentEndDate) {
   } else {
     alert('Failed to request renewal.');
   }
-}`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ new_end_date: newEndDate })
-  });
-  if (res.ok) {
-    alert(`Renewal request submitted! The admin will review and approve it shortly.`);
-    location.reload();
-  } else {
-    alert('Failed to request renewal.');
-  }
-}`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ new_end_date: newEndDate })
-  });
-  if (res.ok) {
-    alert(`Lease renewed successfully until ${newEndDate}!`);
-    location.reload();
-  } else {
-    alert('Failed to renew lease.');
-  }
 }
 </script>
 {% endblock %}
-
-
