@@ -1,54 +1,13 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block content %}
-<div class="hero text-center fade-in-up">
-  <h1 class="hero-title">Precision Microscopy, On Demand.</h1>
-  <p class="muted" style="font-size: 1.2rem; max-width: 700px; margin: 0 auto 32px;">Rent the OpenFlexure Microscope. High-resolution, automated, and open-source hardware delivered directly to your lab.</p>
-  <a href="#catalog" class="btn btn-primary" style="padding: 12px 32px; font-size: 16px;">Explore Available Units</a>
-</div>
-
-<div class="card mb-4" style="background: linear-gradient(135deg, #fff 0%, var(--pink-light) 100%); border: none;">
-  <div class="grid-2" style="align-items: center;">
-    <div>
-      <h2>What is OpenFlexure?</h2>
-      <p class="muted">The OpenFlexure Microscope is a fully 3D-printed, robotic microscope built on Raspberry Pi. It offers laboratory-grade automation, motorized focusing, and high-resolution imaging at a fraction of the cost of traditional equipment.</p>
-    </div>
-    <div class="text-center">
-      <i class="fa-solid fa-microscope" style="font-size: 80px; color: var(--pink); opacity: 0.8;"></i>
-    </div>
-  </div>
-</div>
-
-<h2 id="catalog" class="mb-4" style="margin-top: 48px;">Microscope Fleet</h2>
-<div class="grid-3">
-  {% for u in units %}
-  <div class="card hover-lift" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
-    <div style="height: 200px; background: url('{{ u.image_url or "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&q=80&w=600" }}') center/cover;"></div>
-    <div style="padding: 24px; flex: 1; display: flex; flex-direction: column;">
-      <div class="row-between mb-4">
-        {% if u.status == 'READY' and not u.booked_until %}
-          <span class="badge badge-ready">Available Now</span>
-        {% elif u.status == 'MAINTENANCE' %}
-          <span class="badge badge-in-maintenance">In Maintenance</span>
-        {% elif u.booked_until %}
-          <span class="badge badge-issue-reported">Booked until {{ u.booked_until }}</span>
-        {% else %}
-          <span class="badge badge-closed">Unavailable</span>
-        {% endif %}
-        
-        <span class="mono text-pink">{{ u.serial }}</span>
-      </div>
-      <h3 style="margin: 0 0 8px;">{{ u.model }}</h3>
-      <p class="small muted" style="margin-bottom: 24px;">Illumination: {{ u.configuration.get('illumination', 'Standard') }}<br>Objective: {{ u.configuration.get('objective', 'Standard') }}</p>
-      
-      <div style="margin-top: auto;">
-        {% if u.status == 'READY' and not u.booked_until %}
-          <a href="/lease/{{ u.id }}" class="btn btn-primary" style="width: 100%; justify-content: center;">Request Lease</a>
-        {% else %}
-          <button class="btn btn-ghost" style="width: 100%; justify-content: center; cursor: not-allowed;" disabled>Currently Unavailable</button>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-  {% endfor %}
+<div class="grid-2">
+  <a href="/portal" class="card link-card">
+    <h2>Customer Portal →</h2>
+    <p>Browse microscopes, manage leases, and report issues against your exact serial number.</p>
+  </a>
+  <a href="/admin" class="card link-card">
+    <h2>Admin Dashboard →</h2>
+    <p>Fleet inventory, issue queue, analytics, and per-unit history.</p>
+  </a>
 </div>
 {% endblock %}

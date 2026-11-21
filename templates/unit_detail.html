@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block content %}
 <div class="grid-3-1">
   <div class="stack">
@@ -58,10 +58,11 @@
   <aside class="card">
     <h3>Lease</h3>
     <p class="muted">{{ lease.customer_name }}</p>
-    <p class="small">Delivered: {{ lease.delivered_at[:10] if lease.delivered_at else '--' }}</p>
+    <p class="small">Delivered: {{ lease.delivered_at[:10] }}</p>
     <p class="small">Deposit: ${{ "%.2f"|format(lease.deposit_cents / 100) }}</p>
     <p class="small">Daily: ${{ "%.2f"|format(lease.daily_cents / 100) }}</p>
   </aside>
 </div>
+<script>window.SELF_CHECKS = {{ self_checks | tojson if self_checks else 'null' }};</script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 {% endblock %}
