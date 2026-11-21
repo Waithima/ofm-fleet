@@ -1,4 +1,4 @@
-import json, os, sqlite3, uuid, smtplib, csv, io
+﻿import json, os, sqlite3, uuid, smtplib, csv, io
 import psycopg2
 import psycopg2.extras
 import resend
@@ -82,35 +82,55 @@ def parse_config(u):
     return u
 
 def send_email(to_email, subject, body):
-    to_addr = (to_email or "").strip()
-    if not to_addr:
-        app.logger.warning("Skipping email: empty recipient address")
-        return False
-
-    smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user = os.environ.get("SMTP_USER", "jeffwaithima400@gmail.com")
-    smtp_pass = os.environ.get("SMTP_PASS", "aogbqtsjysvpmvwj")
-
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = smtp_user
-    msg["To"] = to_addr
+    if not to_email: return False
     try:
-        with smtplib.SMTP(smtp_server, smtp_port, timeout=6) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            if smtp_user and smtp_pass:
-                server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
-        app.logger.info("Email sent successfully to %s (subject=%s)", to_addr, subject)
+        resend.Emails.send({"from": "onboarding@resend.dev", "to": [to_email], "subject": subject, "text": body})
+        print(f"📧 Email sent to {to_email}")
         return True
     except Exception as e:
-        app.logger.warning("Email send failed to %s: %s", to_addr, e)
+        print(f"❌ Failed to send: {e}")
         return False
 
-           client_id = execute("INSERT INTO clients (name, email, phone, county, institution, access_token) VALUES (?,?,?,?,?,?)", (name, email, phone, county, institution, token))
+def run_daily_checks():
+    today = datetime.utcnow().date().isoformat()
+    tomorrow = (datetime.utcnow().date() + timedelta(days=1)).isoformat()
+    
+    expired_leases = rows("SELECT * FROM leases WHERE status = 'ACTIVE' AND end_date < ?", (today,))
+    for l in expired_leases:
+        execute("UPDATE leases SET status='COMPLETED' WHERE id=?", (l['id'],))
+        execute("UPDATE units SET status='READY' WHERE id=?", (l['unit_id'],))
+
+    ending_soon = rows("SELECT * FROM leases WHERE status = 'ACTIVE' AND end_date = ? AND last_reminded_at IS NULL", (tomorrow,))
+    for l in ending_soon:
+        client = row("SELECT * FROM clients WHERE id=?", (l['client_id'],))
+        unit = row("SELECT * FROM units WHERE id=?", (l['unit_id'],))
+        magic_link = f"https://ofm-fleet.onrender.com/my-portal/{client['access_token']}"
+        body = f"Hello {client['name']},\n\nThis is a friendly reminder that your lease for {unit['serial']} ends TOMORROW.\n\nRenew here:\n{magic_link}"
+        send_email(client['email'], "Lease Ending Reminder", body)
+        execute("UPDATE leases SET last_reminded_at=datetime('now') WHERE id=?", (l['id'],))
+
+@app.route("/")
+def index():
+    run_daily_checks()
+    units = [parse_config(u) for u in rows("SELECT * FROM units ORDER BY serial")]
+    active_leases = rows("SELECT unit_id, end_date FROM leases WHERE status IN ('ACTIVE', 'PENDING') AND id IN (SELECT MAX(id) FROM leases WHERE status IN ('ACTIVE', 'PENDING') GROUP BY unit_id)")
+    lease_map = {l['unit_id']: l['end_date'][:10] for l in active_leases}
+    for u in units: u['booked_until'] = lease_map.get(u['id'])
+    return render_template("index.html", units=units)
+
+@app.route("/lease/<int:unit_id>", methods=["GET", "POST"])
+def lease_request(unit_id):
+    unit = row("SELECT * FROM units WHERE id=?", (unit_id,))
+    if not unit or unit['status'] in ('MAINTENANCE', 'DECOMMISSIONED'): return "Unit unavailable", 404
+    if request.method == "POST":
+        name, email, phone = request.form.get("name"), request.form.get("email"), request.form.get("phone")
+        county, institution = request.form.get("county"), request.form.get("institution")
+        start_date, end_date = request.form.get("start_date"), request.form.get("end_date")
+        
+        client = row("SELECT * FROM clients WHERE email=?", (email,))
+        if not client:
+            token = str(uuid.uuid4())
+            client_id = execute("INSERT INTO clients (name, email, phone, county, institution, access_token) VALUES (?,?,?,?,?,?)", (name, email, phone, county, institution, token))
             client = row("SELECT * FROM clients WHERE id=?", (client_id,))
         else:
             execute("UPDATE clients SET name=?, phone=?, county=?, institution=? WHERE id=?", (name, phone, county, institution, client['id']))
@@ -128,16 +148,27 @@ def send_email(to_email, subject, body):
         return render_template("lease_success.html", magic_link=magic_link, email=email)
     return render_template("lease_form.html", unit=unit)
 
+# --- FIXED CLIENT PORTAL ROUTE ---
 @app.route("/my-portal/<token>")
 def client_portal(token):
     run_daily_checks()
     client = row("SELECT * FROM clients WHERE access_token=?", (token,))
     if not client: return "Invalid link.", 404
-    leases = rows("SELECT l.*, u.serial, u.model, u.image_url, u.status AS unit_status FROM leases l JOIN units u ON u.id = l.unit_id WHERE l.client_id = ? AND l.id IN (SELECT MAX(id) FROM leases WHERE client_id = ? GROUP BY unit_id) ORDER BY l.id DESC", (client["id"], client["id"]))
+    
+    # Strictly filter by the client's ID to prevent mixing
+    leases = rows("""
+        SELECT l.*, u.serial, u.model, u.image_url, u.status AS unit_status 
+        FROM leases l 
+        JOIN units u ON u.id = l.unit_id 
+        WHERE l.client_id = ? 
+        ORDER BY l.id DESC
+    """, (client["id"],))
+    
     today = datetime.utcnow().date()
     for l in leases:
         end_date = datetime.strptime(l['end_date'], "%Y-%m-%d").date()
         l['show_renew'] = (end_date - today).days <= 1 and l['status'] == 'ACTIVE'
+        
     return render_template("client_portal.html", client=client, leases=leases, token=token)
 
 @app.route("/api/client/renew/<int:lease_id>", methods=["POST"])
@@ -226,20 +257,12 @@ def api_disapprove_lease(lease_id):
     send_email(client["email"], "Lease Request Update", f"Hello {client['name']},\n\nUnfortunately, your lease request for {unit['serial']} was not approved.")
     return jsonify({"ok": True})
 
-# --- NEW: ISSUE QUEUE PAGE ---
 @app.route("/admin/issues")
 @login_required
 def admin_issues():
-    issues = rows("""
-        SELECT i.*, u.serial, u.model, c.name AS client_name, c.email, c.phone 
-        FROM issues i 
-        JOIN units u ON u.id = i.unit_id 
-        JOIN clients c ON c.id = i.client_id 
-        ORDER BY i.created_at DESC
-    """)
+    issues = rows("SELECT i.*, u.serial, u.model, c.name AS client_name, c.email, c.phone FROM issues i JOIN units u ON u.id = i.unit_id JOIN clients c ON c.id = i.client_id ORDER BY i.created_at DESC")
     return render_template("admin_issues.html", issues=issues, active="admin")
 
-# --- NEW: RESOLVE ISSUES ROUTE ---
 @app.route("/api/admin/issues/<int:issue_id>/resolve", methods=["POST"])
 @login_required
 def api_resolve_issue(issue_id):
@@ -317,17 +340,6 @@ if DB_URL:
     except Exception as e:
         print("DB Setup error:", e)
 
-@app.route("/sw.js")
-def sw():
-    return app.send_static_file("sw.js")
-
-@app.route("/sw.js")
-def serve_sw():
-    return app.send_static_file("sw.js")
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
-
-
