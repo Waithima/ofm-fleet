@@ -35,7 +35,7 @@
         <div class="alert mb-4" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; padding: 12px; font-size: 14px;">
           <i class="fa-solid fa-triangle-exclamation"></i> Your lease is ending soon!
         </div>
-        <button class="btn btn-primary mb-4" style="width: 100%;" onclick="renewLease({{ l.id }}, '{{ l.end_date }}')">Renew for 7 Days</button>
+        <button class="btn btn-primary mb-4" style="width: 100%;" onclick="payAndRenew({{ l.id }}, '{{ l.end_date }}')">Renew for 7 Days</button>
 <button class="btn btn-outline mb-4" style="width: 100%;" onclick="payMpesa()">Test M-Pesa Payment</button>
         {% endif %}
 
@@ -117,12 +117,42 @@ async function reportIssue(e, unitId, clientId) {
   }
 }
 
-async function renewLease(leaseId, currentEndDate) {
-  let date = new Date(currentEndDate);
-  date.setDate(date.getDate() + 7);
-  let newEndDate = date.toISOString().split('T')[0];
+async function payAndRenew(leaseId, currentEndDate) {
+  // 1. Prompt for M-Pesa Number
+  const phone = prompt("Enter your M-Pesa phone number (e.g., 254708374149) to pay the KES 50 renewal fee:");
+  if (!phone) return;
   
-  const res = await fetch(`/api/client/renew/${leaseId}`, {
+  // 2. Trigger M-Pesa STK Push
+  const mpesaRes = await fetch('/api/mpesa/pay', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ phone: phone, amount: 50 })
+  });
+  
+  const mpesaData = await mpesaRes.json();
+  
+  if (mpesaData.ResponseCode === "0") {
+    // 3. If M-Pesa is successful, submit the renewal request
+    let date = new Date(currentEndDate);
+    date.setDate(date.getDate() + 7);
+    let newEndDate = date.toISOString().split('T')[0];
+    
+    const renewRes = await fetch(`/api/client/renew/${leaseId}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ new_end_date: newEndDate })
+    });
+    
+    if (renewRes.ok) {
+      alert(`✅ Payment Received! Renewal request sent. The admin will review it and email you once approved.`);
+      location.reload();
+    } else {
+      alert('Payment succeeded, but failed to submit renewal. Please contact support.');
+    }
+  } else {
+    alert("M-Pesa Error: " + (mpesaData.errorMessage || "Transaction cancelled."));
+  }
+}`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ new_end_date: newEndDate })
@@ -153,4 +183,5 @@ async function payMpesa() {
 }
 </script>
 {% endblock %}
+
 
