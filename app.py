@@ -389,28 +389,24 @@ def get_mpesa_token():
     return response.json().get("access_token")
 
 @app.route("/api/telemetry/heartbeat", methods=["POST"])
-def telemetry_heartbeat():
-    data = request.get_json(silent=True) or {}
-    serial = (data.get("serial") or data.get("serial_number") or "").strip()
-    if not serial:
-        return jsonify({"error": "Missing serial"}), 400
-
-    unit = row("SELECT id FROM units WHERE serial = ?", (serial,))
-    if not unit:
-        return jsonify({"error": "Unknown unit"}), 404
-
-    online = 1 if data.get("online", True) else 0
-    cam_val = data.get("camera_ok") if "camera_ok" in data else data.get("camera")
-    camera_ok = 1 if cam_val else 0
-    os_info = data.get("os_info")
-    error_log = data.get("error_log")
-    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-
-    execute(
-        "INSERT INTO telemetry (unit_id, online, os_info, camera_ok, error_log, received_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (unit["id"], online, os_info, camera_ok, error_log, now_str),
-    )
-    execute("UPDATE units SET last_seen_at = ? WHERE id = ?", (now_str, unit["id"]))
+def api_heartbeat():
+    data = request.get_json(force=True)
+    unit = row("SELECT id, total_hours, pictures_taken FROM units WHERE serial=?", (data.get("serial"),))
+    if not unit: return jsonify({"error": "unknown serial"}), 404
+    
+    # Record the heartbeat
+    execute("INSERT INTO telemetry (unit_id,online,os_info,camera_ok) VALUES (?,?,?,?)",
+            (unit["id"], 1 if data.get("online") else 0, data.get("osInfo"), 1 if data.get("cameraOk") else None))
+            
+    # Update the unit with the latest usage data
+    new_hours = data.get("uptime_hours", 0)
+    new_pics = data.get("pictures_taken", 0)
+    
+    # Only update if the new number is higher (prevents resetting on reboot)
+    execute("UPDATE units SET total_hours = GREATEST(total_hours, ?), pictures_taken = GREATEST(pictures_taken, ?) WHERE id=?", 
+            (new_hours, new_pics, unit["id"]))
+            
+    execute("UPDATE units SET last_seen_at = datetime('now') WHERE id=?", (unit["id"],))
     return jsonify({"ok": True}), 200
 
 
@@ -455,3 +451,4 @@ def mpesa_callback():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+

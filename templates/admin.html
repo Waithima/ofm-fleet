@@ -33,7 +33,7 @@
 <div class="card p-0" style="overflow-x: auto;">
   <table class="table" style="min-width: 800px;">
     <thead>
-      <tr><th>Serial</th><th>Model</th><th>Status</th><th>Leased to</th><th>Booked Until</th><th>Actions</th></tr>
+      <tr><th>Serial</th><th>Model</th><th>Status</th><th>Leased to</th><th>Booked Until</th><th>Hours Used</th><th>Pictures Taken</th><th>Actions</th></tr>
     </thead>
     <tbody>
     {% for u in units %}
@@ -50,7 +50,7 @@
           </select>
         </td>
         <td>{{ u.client_name or '—' }}</td>
-        <td class="muted">{{ u.end_date[:10] if u.end_date else '—' }}</td>
+        <td class="muted">{{ u.end_date[:10] if u.end_date else '—' }}</td><td><strong>{{ u.total_hours or 0 }} hrs</strong></td><td>{{ u.pictures_taken or 0 }} pics</td>
         <td>
           <button class="btn btn-danger btn-sm" onclick="deleteUnit('{{ u.id }}', '{{ u.serial }}')">Delete</button>
         </td>
@@ -118,5 +118,6 @@ async function updateStatus(id, status) {
 }
 </script>
 {% endblock %}
+
 
 
