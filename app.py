@@ -220,7 +220,12 @@ def admin_live():
     for u in units:
         if u["received_at"]:
             try:
-                age = (now - datetime.fromisoformat(u["received_at"])).total_seconds()
+                rec = u["received_at"]
+                if isinstance(rec, str):
+                    rec = datetime.fromisoformat(rec.replace("Z", "+00:00")).replace(tzinfo=None)
+                elif getattr(rec, "tzinfo", None) is not None:
+                    rec = rec.replace(tzinfo=None)
+                age = max(0.0, (now - rec).total_seconds())
                 u["live"], u["age_seconds"] = age < 180, int(age)
             except: u["live"] = False
         else: u["live"] = False
@@ -382,6 +387,32 @@ def get_mpesa_token():
     headers = {"Authorization": f"Basic {encoded_auth}"}
     response = requests.get(api_url, headers=headers)
     return response.json().get("access_token")
+
+@app.route("/api/telemetry/heartbeat", methods=["POST"])
+def telemetry_heartbeat():
+    data = request.get_json(silent=True) or {}
+    serial = (data.get("serial") or data.get("serial_number") or "").strip()
+    if not serial:
+        return jsonify({"error": "Missing serial"}), 400
+
+    unit = row("SELECT id FROM units WHERE serial = ?", (serial,))
+    if not unit:
+        return jsonify({"error": "Unknown unit"}), 404
+
+    online = 1 if data.get("online", True) else 0
+    cam_val = data.get("camera_ok") if "camera_ok" in data else data.get("camera")
+    camera_ok = 1 if cam_val else 0
+    os_info = data.get("os_info")
+    error_log = data.get("error_log")
+    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    execute(
+        "INSERT INTO telemetry (unit_id, online, os_info, camera_ok, error_log, received_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (unit["id"], online, os_info, camera_ok, error_log, now_str),
+    )
+    execute("UPDATE units SET last_seen_at = ? WHERE id = ?", (now_str, unit["id"]))
+    return jsonify({"ok": True}), 200
+
 
 @app.route("/api/mpesa/pay", methods=["POST"])
 def mpesa_pay():
