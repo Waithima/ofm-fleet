@@ -400,9 +400,14 @@ def api_heartbeat():
     new_hours = data.get("uptime_hours", 0)
     new_pics = data.get("pictures_taken", 0)
     new_vids = data.get("videos_taken", 0)
+    new_access = data.get("access_count", 0)
     
-    execute("UPDATE units SET total_hours = GREATEST(total_hours, ?), pictures_taken = GREATEST(pictures_taken, ?), videos_taken = GREATEST(videos_taken, ?) WHERE id=?", 
-            (new_hours, new_pics, new_vids, unit["id"]))
+    execute("""UPDATE units SET total_hours = GREATEST(total_hours, ?), 
+               pictures_taken = GREATEST(pictures_taken, ?), 
+               videos_taken = GREATEST(videos_taken, ?),
+               access_count = GREATEST(access_count, ?) 
+               WHERE id=?""", 
+            (new_hours, new_pics, new_vids, new_access, unit["id"]))
             
     execute("UPDATE units SET last_seen_at = datetime('now') WHERE id=?", (unit["id"],))
     return jsonify({"ok": True}), 200
@@ -449,5 +454,6 @@ def mpesa_callback():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
